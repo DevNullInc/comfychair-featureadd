@@ -241,7 +241,11 @@ fun GalleryScreen(
                 if (uiState.isSelectionMode) {
                     // Selection mode actions: Delete, Save, and Share
                     IconButton(onClick = { galleryViewModel.deleteSelected() }) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_history_item))
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete_history_item),
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                     IconButton(onClick = { galleryViewModel.saveSelectedToGallery(context) }) {
                         Icon(Icons.Default.Save, contentDescription = stringResource(R.string.save_image))
