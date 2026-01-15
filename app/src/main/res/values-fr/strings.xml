@@ -563,4 +563,38 @@
     <string name="field_desc_latent_upscale_model">Modèle pour l\'upscale dans l\'espace latent</string>
     <string name="field_desc_fallback">Champ requis : %1$s</string>
     <string name="content_description_show_help">Afficher l\'aide</string>
+
+    <!-- Prompt Presets -->
+    <string name="prompt_presets_button">Modèles de prompt</string>
+    <string name="prompt_presets_open_library">Ouvrir la bibliothèque de prompts</string>
+    <string name="prompt_presets_save_current">Enregistrer le prompt actuel</string>
+    <string name="prompt_library_title">Bibliothèque de prompts</string>
+    <string name="prompt_library_search_placeholder">Rechercher des prompts…</string>
+    <string name="prompt_library_empty">Aucun prompt enregistré</string>
+    <string name="prompt_preset_toggle_favorite">Basculer le favori</string>
+    <string name="prompt_preset_edit">Modifier</string>
+    <string name="prompt_preset_duplicate">Dupliquer</string>
+    <string name="prompt_preset_delete">Supprimer</string>
+    <string name="prompt_preset_save_title">Enregistrer le prompt</string>
+    <string name="prompt_preset_edit_title">Modifier le prompt</string>
+    <string name="prompt_preset_name_label">Nom</string>
+    <string name="prompt_preset_name_taken">Ce nom est déjà utilisé</string>
+    <string name="prompt_preset_tags_label">Tags</string>
+    <string name="prompt_preset_add_tag_hint">Ajouter un tag (virgule pour confirmer)</string>
+    <string name="prompt_preset_remove_tag">Supprimer le tag</string>
+    <string name="prompt_preset_suggested_tags">Tags suggérés :</string>
+    <string name="prompt_preset_max_favorites">Maximum de 8 favoris atteint</string>
+    <string name="prompt_preset_saved">Prompt enregistré</string>
+    <string name="prompt_preset_duplicated">Prompt dupliqué</string>
+    <string name="prompt_preset_deleted">Prompt supprimé</string>
+    <string name="prompt_preset_screen_type_label">Enregistrer pour</string>
+
+    <!-- Screen type display names -->
+    <string name="screen_type_text_to_image">Texte vers image</string>
+    <string name="screen_type_image_to_image">Image vers image</string>
+    <string name="screen_type_text_to_video">Texte vers vidéo</string>
+    <string name="screen_type_image_to_video">Image vers vidéo</string>
+
+    <!-- Metadata actions -->
+    <string name="metadata_save_prompt">Enregistrer le prompt dans la bibliothèque</string>
 </resources>

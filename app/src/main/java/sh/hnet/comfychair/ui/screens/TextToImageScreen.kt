@@ -49,12 +49,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import sh.hnet.comfychair.MediaViewerActivity
 import sh.hnet.comfychair.R
 import sh.hnet.comfychair.WorkflowEditorActivity
 import sh.hnet.comfychair.connection.ConnectionManager
+import sh.hnet.comfychair.model.ScreenType
 import sh.hnet.comfychair.queue.JobRegistry
 import sh.hnet.comfychair.ui.components.AppMenuDropdown
+import sh.hnet.comfychair.ui.components.PromptLibraryDialog
+import sh.hnet.comfychair.ui.components.PromptPresetDialog
+import sh.hnet.comfychair.ui.components.shared.PromptPresetDropdown
 import sh.hnet.comfychair.ui.theme.Dimensions
 import sh.hnet.comfychair.ui.components.config.ConfigBottomSheetContent
 import sh.hnet.comfychair.ui.components.config.UnifiedCallbacks
@@ -64,6 +72,8 @@ import sh.hnet.comfychair.ui.components.GenerationButton
 import sh.hnet.comfychair.ui.components.GenerationProgressBar
 import sh.hnet.comfychair.viewmodel.ConnectionStatus
 import sh.hnet.comfychair.viewmodel.GenerationViewModel
+import sh.hnet.comfychair.viewmodel.PromptPresetEvent
+import sh.hnet.comfychair.viewmodel.PromptPresetViewModel
 import sh.hnet.comfychair.viewmodel.TextToImageEvent
 import sh.hnet.comfychair.viewmodel.TextToImageViewModel
 
@@ -80,12 +90,30 @@ fun TextToImageScreen(
 ) {
     val context = LocalContext.current
 
+    // Prompt preset ViewModel
+    val presetViewModel: PromptPresetViewModel = viewModel()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     // State and effects
     // Initialize ViewModels
     LaunchedEffect(Unit) {
         val client = generationViewModel.getClient()
         if (client != null) {
             textToImageViewModel.initialize(context, client)
+        }
+        presetViewModel.initialize(context, ScreenType.TEXT_TO_IMAGE)
+    }
+
+    // Refresh presets when screen resumes (catches external changes from Media Viewer)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                presetViewModel.refreshPresets()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -95,6 +123,7 @@ fun TextToImageScreen(
     val uiState by textToImageViewModel.uiState.collectAsState()
     val queueState by JobRegistry.queueState.collectAsState()
     val isConnecting by ConnectionManager.isConnecting.collectAsState()
+    val presetUiState by presetViewModel.uiState.collectAsState()
 
     // Check if THIS screen owns the currently executing job (for progress bar)
     val isThisScreenExecuting = queueState.executingOwnerId == TextToImageViewModel.OWNER_ID
@@ -142,14 +171,29 @@ fun TextToImageScreen(
         }
     }
 
+    // Preset event handling
+    LaunchedEffect(Unit) {
+        presetViewModel.events.collect { event ->
+            when (event) {
+                is PromptPresetEvent.PresetApplied -> {
+                    textToImageViewModel.onPositivePromptChange(event.prompt)
+                }
+                is PromptPresetEvent.ShowToast -> {
+                    Toast.makeText(context, context.getString(event.messageResId), Toast.LENGTH_SHORT).show()
+                }
+                is PromptPresetEvent.MaxFavoritesReached -> {
+                    Toast.makeText(context, context.getString(R.string.prompt_preset_max_favorites), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     // UI composition
     var showOptionsBottomSheet by remember { mutableStateOf(false) }
     val optionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Top App Bar with save/share actions
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Top App Bar with save/share actions (outside content Box)
         TopAppBar(
             title = { Text(stringResource(R.string.nav_text_to_image)) },
             windowInsets = WindowInsets(0, 0, 0, 0),
@@ -236,13 +280,26 @@ fun TextToImageScreen(
         // Prompt Input
         OutlinedTextField(
             value = uiState.positivePrompt,
-            onValueChange = { textToImageViewModel.onPositivePromptChange(it) },
+            onValueChange = {
+                textToImageViewModel.onPositivePromptChange(it)
+                presetViewModel.clearActivePreset()
+            },
             label = { Text(stringResource(R.string.prompt_hint)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             minLines = 2,
             maxLines = 4,
+            leadingIcon = {
+                PromptPresetDropdown(
+                    favorites = presetUiState.favorites,
+                    activePresetId = presetUiState.activePresetId,
+                    currentPromptIsEmpty = uiState.positivePrompt.isEmpty(),
+                    onPresetSelected = { presetViewModel.onPresetSelected(it) },
+                    onOpenLibrary = { presetViewModel.showLibrary() },
+                    onSaveCurrentPrompt = { presetViewModel.showSaveDialog(uiState.positivePrompt) }
+                )
+            },
             trailingIcon = {
                 if (uiState.positivePrompt.isNotEmpty()) {
                     IconButton(onClick = { textToImageViewModel.onPositivePromptChange("") }) {
@@ -348,7 +405,7 @@ fun TextToImageScreen(
                 )
             }
         }
-    }
+    } // End of outer Column
 
     // Options Bottom Sheet
     if (showOptionsBottomSheet) {
@@ -409,5 +466,38 @@ fun TextToImageScreen(
                 workflowName = uiState.selectedWorkflow
             )
         }
+    }
+
+    // Prompt Library Dialog
+    if (presetUiState.showLibrarySideSheet) {
+        PromptLibraryDialog(
+            presets = presetViewModel.getFilteredPresets(),
+            availableTags = presetUiState.availableTags,
+            searchQuery = presetUiState.searchQuery,
+            selectedTags = presetUiState.selectedTags,
+            filterFavoritesOnly = presetUiState.filterFavoritesOnly,
+            activePresetId = presetUiState.activePresetId,
+            onSearchQueryChange = { presetViewModel.onSearchQueryChange(it) },
+            onTagToggle = { presetViewModel.onTagToggle(it) },
+            onToggleFavoritesFilter = { presetViewModel.onToggleFavoritesFilter() },
+            onPresetSelected = { presetViewModel.onPresetSelected(it) },
+            onToggleFavorite = { presetViewModel.onToggleFavorite(it) },
+            onEditPreset = { presetViewModel.showEditDialog(it) },
+            onDuplicatePreset = { presetViewModel.onDuplicatePreset(it) },
+            onDeletePreset = { presetViewModel.onDeletePreset(it) },
+            onDismiss = { presetViewModel.dismissLibrary() }
+        )
+    }
+
+    // Prompt Preset Save/Edit Dialog
+    if (presetUiState.showSaveDialog) {
+        PromptPresetDialog(
+            editingPreset = presetUiState.editingPreset,
+            currentPrompt = presetUiState.currentPromptForSave,
+            existingTags = presetUiState.availableTags,
+            isNameTaken = { name, excludeId -> presetViewModel.isNameTaken(name, excludeId) },
+            onDismiss = { presetViewModel.dismissSaveDialog() },
+            onSave = { name, prompt, tags -> presetViewModel.onSavePreset(name, prompt, tags) }
+        )
     }
 }

@@ -187,10 +187,10 @@
     <!-- Image to Video fragment strings -->
     <string name="image_to_video_title">Bild zu Video</string>
     <string name="nav_image_to_video">Bild zu Video</string>
-    <string name="highnoise_unet_label">High noise UNET</string>
-    <string name="lownoise_unet_label">Low noise UNET</string>
-    <string name="highnoise_lora_label">High noise LoRA</string>
-    <string name="lownoise_lora_label">Low noise LoRA</string>
+    <string name="highnoise_unet_label">High Noise UNET</string>
+    <string name="lownoise_unet_label">Low Noise UNET</string>
+    <string name="highnoise_lora_label">High Noise LoRA</string>
+    <string name="lownoise_lora_label">Low Noise LoRA</string>
     <string name="length_label">Länge</string>
     <string name="placeholder_video_description">Generiertes Video erscheint hier</string>
 
@@ -561,4 +561,38 @@
     <string name="field_desc_latent_upscale_model">Modell für Latent-Space-Hochskalierung</string>
     <string name="field_desc_fallback">Erforderliches Feld: %1$s</string>
     <string name="content_description_show_help">Hilfe anzeigen</string>
+
+    <!-- Prompt Presets -->
+    <string name="prompt_presets_button">Prompt-Vorlagen</string>
+    <string name="prompt_presets_open_library">Prompt-Bibliothek öffnen</string>
+    <string name="prompt_presets_save_current">Aktuellen Prompt speichern</string>
+    <string name="prompt_library_title">Prompt-Bibliothek</string>
+    <string name="prompt_library_search_placeholder">Prompts suchen…</string>
+    <string name="prompt_library_empty">Keine gespeicherten Prompts</string>
+    <string name="prompt_preset_toggle_favorite">Favorit umschalten</string>
+    <string name="prompt_preset_edit">Bearbeiten</string>
+    <string name="prompt_preset_duplicate">Duplizieren</string>
+    <string name="prompt_preset_delete">Löschen</string>
+    <string name="prompt_preset_save_title">Prompt speichern</string>
+    <string name="prompt_preset_edit_title">Prompt bearbeiten</string>
+    <string name="prompt_preset_name_label">Name</string>
+    <string name="prompt_preset_name_taken">Dieser Name wird bereits verwendet</string>
+    <string name="prompt_preset_tags_label">Tags</string>
+    <string name="prompt_preset_add_tag_hint">Tag hinzufügen (Komma zum Bestätigen)</string>
+    <string name="prompt_preset_remove_tag">Tag entfernen</string>
+    <string name="prompt_preset_suggested_tags">Vorgeschlagene Tags:</string>
+    <string name="prompt_preset_max_favorites">Maximal 8 Favoriten erreicht</string>
+    <string name="prompt_preset_saved">Prompt gespeichert</string>
+    <string name="prompt_preset_duplicated">Prompt dupliziert</string>
+    <string name="prompt_preset_deleted">Prompt gelöscht</string>
+    <string name="prompt_preset_screen_type_label">Speichern für</string>
+
+    <!-- Screen type display names -->
+    <string name="screen_type_text_to_image">Text zu Bild</string>
+    <string name="screen_type_image_to_image">Bild zu Bild</string>
+    <string name="screen_type_text_to_video">Text zu Video</string>
+    <string name="screen_type_image_to_video">Bild zu Video</string>
+
+    <!-- Metadata actions -->
+    <string name="metadata_save_prompt">Prompt in Bibliothek speichern</string>
 </resources>

@@ -563,4 +563,38 @@
     <string name="field_desc_latent_upscale_model">用于潜空间放大的模型</string>
     <string name="field_desc_fallback">必填字段：%1$s</string>
     <string name="content_description_show_help">显示帮助</string>
+
+    <!-- Prompt Presets -->
+    <string name="prompt_presets_button">提示词模板</string>
+    <string name="prompt_presets_open_library">打开提示词库</string>
+    <string name="prompt_presets_save_current">保存当前提示词</string>
+    <string name="prompt_library_title">提示词库</string>
+    <string name="prompt_library_search_placeholder">搜索提示词…</string>
+    <string name="prompt_library_empty">暂无保存的提示词</string>
+    <string name="prompt_preset_toggle_favorite">切换收藏</string>
+    <string name="prompt_preset_edit">编辑</string>
+    <string name="prompt_preset_duplicate">复制</string>
+    <string name="prompt_preset_delete">删除</string>
+    <string name="prompt_preset_save_title">保存提示词</string>
+    <string name="prompt_preset_edit_title">编辑提示词</string>
+    <string name="prompt_preset_name_label">名称</string>
+    <string name="prompt_preset_name_taken">此名称已被使用</string>
+    <string name="prompt_preset_tags_label">标签</string>
+    <string name="prompt_preset_add_tag_hint">添加标签（逗号确认）</string>
+    <string name="prompt_preset_remove_tag">移除标签</string>
+    <string name="prompt_preset_suggested_tags">推荐标签：</string>
+    <string name="prompt_preset_max_favorites">已达到8个收藏上限</string>
+    <string name="prompt_preset_saved">提示词已保存</string>
+    <string name="prompt_preset_duplicated">提示词已复制</string>
+    <string name="prompt_preset_deleted">提示词已删除</string>
+    <string name="prompt_preset_screen_type_label">保存至</string>
+
+    <!-- Screen type display names -->
+    <string name="screen_type_text_to_image">文生图</string>
+    <string name="screen_type_image_to_image">图生图</string>
+    <string name="screen_type_text_to_video">文生视频</string>
+    <string name="screen_type_image_to_video">图生视频</string>
+
+    <!-- Metadata actions -->
+    <string name="metadata_save_prompt">保存提示词到库</string>
 </resources>

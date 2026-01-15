@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import sh.hnet.comfychair.ui.components.shared.NoOverscrollContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,7 +31,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +42,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import sh.hnet.comfychair.R
+import sh.hnet.comfychair.model.PromptPreset
+import sh.hnet.comfychair.storage.PromptPresetStorage
 import sh.hnet.comfychair.util.GenerationMetadata
 
 /**
@@ -52,6 +58,13 @@ fun MetadataBottomSheet(
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Storage for saving prompts to library
+    val storage = remember { PromptPresetStorage(context) }
+
+    // Dialog state for saving prompt to library
+    var showSavePromptDialog by remember { mutableStateOf(false) }
+    var promptToSave by remember { mutableStateOf("") }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -115,7 +128,13 @@ fun MetadataBottomSheet(
                             MetadataRow(
                                 label = item.label,
                                 value = item.value,
-                                onCopy = { copyToClipboard(context, item.value) }
+                                onCopy = { copyToClipboard(context, item.value) },
+                                onSave = if (item.isPositivePrompt) {
+                                    {
+                                        promptToSave = item.value
+                                        showSavePromptDialog = true
+                                    }
+                                } else null
                             )
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 8.dp),
@@ -127,16 +146,42 @@ fun MetadataBottomSheet(
             }
         }
     }
+
+    // Save prompt to library dialog
+    if (showSavePromptDialog) {
+        PromptPresetDialog(
+            editingPreset = null,
+            currentPrompt = promptToSave,
+            existingTags = emptySet(),
+            isNameTaken = { _, _ -> false },  // Not used in screen type selector mode
+            onDismiss = { showSavePromptDialog = false },
+            onSave = { _, _, _ -> },  // Not used in screen type selector mode
+            showScreenTypeSelector = true,
+            storage = storage,
+            onSaveWithScreenType = { name, prompt, tags, screenType ->
+                val preset = PromptPreset.create(screenType, name, prompt, tags)
+                storage.addPreset(preset)
+                showSavePromptDialog = false
+                Toast.makeText(context, R.string.prompt_preset_saved, Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
 }
 
 /**
  * A single row in the metadata sheet.
+ *
+ * @param label The label to display
+ * @param value The value to display
+ * @param onCopy Called when the copy button is tapped
+ * @param onSave Optional callback for save action; when provided, a save button is shown
  */
 @Composable
 private fun MetadataRow(
     label: String,
     value: String,
-    onCopy: () -> Unit
+    onCopy: () -> Unit,
+    onSave: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -163,15 +208,29 @@ private fun MetadataRow(
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
-        IconButton(
-            onClick = onCopy,
-            modifier = Modifier.size(40.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.ContentCopy,
-                contentDescription = stringResource(R.string.copy_to_clipboard),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Row {
+            if (onSave != null) {
+                IconButton(
+                    onClick = onSave,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.BookmarkAdd,
+                        contentDescription = stringResource(R.string.metadata_save_prompt),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            IconButton(
+                onClick = onCopy,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = stringResource(R.string.copy_to_clipboard),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -181,7 +240,8 @@ private fun MetadataRow(
  */
 private data class MetadataItem(
     val label: String,
-    val value: String
+    val value: String,
+    val isPositivePrompt: Boolean = false
 )
 
 /**
@@ -191,7 +251,11 @@ private fun buildMetadataItems(metadata: GenerationMetadata, context: Context): 
     val items = mutableListOf<MetadataItem>()
 
     metadata.positivePrompt?.let {
-        items.add(MetadataItem(context.getString(R.string.metadata_positive_prompt), it))
+        items.add(MetadataItem(
+            label = context.getString(R.string.metadata_positive_prompt),
+            value = it,
+            isPositivePrompt = true
+        ))
     }
 
     metadata.negativePrompt?.let {

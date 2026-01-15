@@ -43,7 +43,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -56,6 +58,7 @@ import kotlinx.coroutines.launch
 import sh.hnet.comfychair.MediaViewerActivity
 import sh.hnet.comfychair.R
 import sh.hnet.comfychair.WorkflowEditorActivity
+import sh.hnet.comfychair.model.ScreenType
 import sh.hnet.comfychair.connection.ConnectionManager
 import sh.hnet.comfychair.queue.JobRegistry
 import sh.hnet.comfychair.ui.components.AppMenuDropdown
@@ -63,6 +66,9 @@ import sh.hnet.comfychair.ui.theme.Dimensions
 import sh.hnet.comfychair.storage.AppSettings
 import sh.hnet.comfychair.ui.components.GenerationButton
 import sh.hnet.comfychair.ui.components.GenerationProgressBar
+import sh.hnet.comfychair.ui.components.PromptLibraryDialog
+import sh.hnet.comfychair.ui.components.PromptPresetDialog
+import sh.hnet.comfychair.ui.components.shared.PromptPresetDropdown
 import sh.hnet.comfychair.ui.components.config.ConfigBottomSheetContent
 import sh.hnet.comfychair.ui.components.config.UnifiedCallbacks
 import sh.hnet.comfychair.ui.components.config.toBottomSheetConfig
@@ -70,6 +76,8 @@ import sh.hnet.comfychair.ui.components.VideoPlayer
 import sh.hnet.comfychair.util.VideoUtils
 import sh.hnet.comfychair.viewmodel.ContentType
 import sh.hnet.comfychair.viewmodel.GenerationViewModel
+import sh.hnet.comfychair.viewmodel.PromptPresetEvent
+import sh.hnet.comfychair.viewmodel.PromptPresetViewModel
 import sh.hnet.comfychair.viewmodel.TextToVideoEvent
 import sh.hnet.comfychair.viewmodel.TextToVideoViewModel
 
@@ -79,7 +87,8 @@ fun TextToVideoScreen(
     generationViewModel: GenerationViewModel,
     textToVideoViewModel: TextToVideoViewModel,
     onNavigateToSettings: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    presetViewModel: PromptPresetViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -89,6 +98,7 @@ fun TextToVideoScreen(
     // Collect state
     val generationState by generationViewModel.generationState.collectAsState()
     val uiState by textToVideoViewModel.uiState.collectAsState()
+    val presetUiState by presetViewModel.uiState.collectAsState()
     val queueState by JobRegistry.queueState.collectAsState()
     val isConnecting by ConnectionManager.isConnecting.collectAsState()
 
@@ -125,11 +135,25 @@ fun TextToVideoScreen(
         generationViewModel.getClient()?.let { client ->
             textToVideoViewModel.initialize(context, client)
         }
+        presetViewModel.initialize(context, ScreenType.TEXT_TO_VIDEO)
 
         // Check if there's a pending generation that may have completed while we were away
         if (generationViewModel.generationState.value.isGenerating &&
             generationViewModel.generationState.value.ownerId == TextToVideoViewModel.OWNER_ID) {
             generationViewModel.checkServerForCompletion { _, _ -> }
+        }
+    }
+
+    // Refresh presets when screen resumes (catches external changes from Media Viewer)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                presetViewModel.refreshPresets()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -161,6 +185,23 @@ fun TextToVideoScreen(
                 }
                 is TextToVideoEvent.ShowToastMessage -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Preset event handling
+    LaunchedEffect(Unit) {
+        presetViewModel.events.collect { event ->
+            when (event) {
+                is PromptPresetEvent.PresetApplied -> {
+                    textToVideoViewModel.onPositivePromptChange(event.prompt)
+                }
+                is PromptPresetEvent.ShowToast -> {
+                    Toast.makeText(context, context.getString(event.messageResId), Toast.LENGTH_SHORT).show()
+                }
+                is PromptPresetEvent.MaxFavoritesReached -> {
+                    Toast.makeText(context, context.getString(R.string.prompt_preset_max_favorites), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -260,16 +301,32 @@ fun TextToVideoScreen(
         // Prompt Input
         OutlinedTextField(
             value = uiState.positivePrompt,
-            onValueChange = { textToVideoViewModel.onPositivePromptChange(it) },
+            onValueChange = {
+                textToVideoViewModel.onPositivePromptChange(it)
+                presetViewModel.clearActivePreset()
+            },
             label = { Text(stringResource(R.string.prompt_hint)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             minLines = 2,
             maxLines = 4,
+            leadingIcon = {
+                PromptPresetDropdown(
+                    favorites = presetUiState.favorites,
+                    activePresetId = presetUiState.activePresetId,
+                    currentPromptIsEmpty = uiState.positivePrompt.isEmpty(),
+                    onPresetSelected = { presetViewModel.onPresetSelected(it) },
+                    onOpenLibrary = { presetViewModel.showLibrary() },
+                    onSaveCurrentPrompt = { presetViewModel.showSaveDialog(uiState.positivePrompt) }
+                )
+            },
             trailingIcon = {
                 if (uiState.positivePrompt.isNotEmpty()) {
-                    IconButton(onClick = { textToVideoViewModel.onPositivePromptChange("") }) {
+                    IconButton(onClick = {
+                        textToVideoViewModel.onPositivePromptChange("")
+                        presetViewModel.clearActivePreset()
+                    }) {
                         Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.content_description_clear))
                     }
                 }
@@ -370,7 +427,7 @@ fun TextToVideoScreen(
                 )
             }
         }
-    }
+    } // End of outer Column
 
     // Options bottom sheet
     if (showOptionsSheet) {
@@ -450,5 +507,38 @@ fun TextToVideoScreen(
                 workflowName = uiState.selectedWorkflow
             )
         }
+    }
+
+    // Prompt Library Dialog
+    if (presetUiState.showLibrarySideSheet) {
+        PromptLibraryDialog(
+            presets = presetViewModel.getFilteredPresets(),
+            availableTags = presetUiState.availableTags,
+            searchQuery = presetUiState.searchQuery,
+            selectedTags = presetUiState.selectedTags,
+            filterFavoritesOnly = presetUiState.filterFavoritesOnly,
+            activePresetId = presetUiState.activePresetId,
+            onSearchQueryChange = { presetViewModel.onSearchQueryChange(it) },
+            onTagToggle = { presetViewModel.onTagToggle(it) },
+            onToggleFavoritesFilter = { presetViewModel.onToggleFavoritesFilter() },
+            onPresetSelected = { presetViewModel.onPresetSelected(it) },
+            onToggleFavorite = { presetViewModel.onToggleFavorite(it) },
+            onEditPreset = { presetViewModel.showEditDialog(it) },
+            onDuplicatePreset = { presetViewModel.onDuplicatePreset(it) },
+            onDeletePreset = { presetViewModel.onDeletePreset(it) },
+            onDismiss = { presetViewModel.dismissLibrary() }
+        )
+    }
+
+    // Prompt Preset Dialog
+    if (presetUiState.showSaveDialog) {
+        PromptPresetDialog(
+            editingPreset = presetUiState.editingPreset,
+            currentPrompt = presetUiState.currentPromptForSave,
+            existingTags = presetUiState.availableTags,
+            isNameTaken = { name, excludeId -> presetViewModel.isNameTaken(name, excludeId) },
+            onDismiss = { presetViewModel.dismissSaveDialog() },
+            onSave = { name, prompt, tags -> presetViewModel.onSavePreset(name, prompt, tags) }
+        )
     }
 }

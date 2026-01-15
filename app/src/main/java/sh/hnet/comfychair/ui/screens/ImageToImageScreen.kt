@@ -56,6 +56,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import sh.hnet.comfychair.MaskEditorActivity
 import sh.hnet.comfychair.MediaViewerActivity
@@ -63,8 +67,12 @@ import sh.hnet.comfychair.R
 import sh.hnet.comfychair.WorkflowEditorActivity
 import sh.hnet.comfychair.cache.MaskEditorStateHolder
 import sh.hnet.comfychair.connection.ConnectionManager
+import sh.hnet.comfychair.model.ScreenType
 import sh.hnet.comfychair.queue.JobRegistry
 import sh.hnet.comfychair.ui.components.AppMenuDropdown
+import sh.hnet.comfychair.ui.components.PromptLibraryDialog
+import sh.hnet.comfychair.ui.components.PromptPresetDialog
+import sh.hnet.comfychair.ui.components.shared.PromptPresetDropdown
 import sh.hnet.comfychair.ui.theme.Dimensions
 import sh.hnet.comfychair.storage.AppSettings
 import sh.hnet.comfychair.ui.components.GenerationButton
@@ -79,6 +87,8 @@ import sh.hnet.comfychair.viewmodel.ImageToImageEvent
 import sh.hnet.comfychair.viewmodel.ImageToImageMode
 import sh.hnet.comfychair.viewmodel.ImageToImageViewMode
 import sh.hnet.comfychair.viewmodel.ImageToImageViewModel
+import sh.hnet.comfychair.viewmodel.PromptPresetEvent
+import sh.hnet.comfychair.viewmodel.PromptPresetViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -91,6 +101,10 @@ fun ImageToImageScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Prompt preset ViewModel
+    val presetViewModel: PromptPresetViewModel = viewModel()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     // State and effects
     // Collect state
     val generationState by generationViewModel.generationState.collectAsState()
@@ -98,6 +112,25 @@ fun ImageToImageScreen(
     val uiState by imageToImageViewModel.uiState.collectAsState()
     val queueState by JobRegistry.queueState.collectAsState()
     val isConnecting by ConnectionManager.isConnecting.collectAsState()
+    val presetUiState by presetViewModel.uiState.collectAsState()
+
+    // Initialize preset ViewModel (shared for both inpainting and editing modes)
+    LaunchedEffect(Unit) {
+        presetViewModel.initialize(context, ScreenType.IMAGE_TO_IMAGE)
+    }
+
+    // Refresh presets when screen resumes (catches external changes from Media Viewer)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                presetViewModel.refreshPresets()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Check if THIS screen owns the currently executing job (for progress bar)
     val isThisScreenExecuting = queueState.executingOwnerId == ImageToImageViewModel.OWNER_ID
@@ -142,6 +175,23 @@ fun ImageToImageScreen(
                 }
                 is ImageToImageEvent.ShowToastMessage -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Preset event handling
+    LaunchedEffect(Unit) {
+        presetViewModel.events.collect { event ->
+            when (event) {
+                is PromptPresetEvent.PresetApplied -> {
+                    imageToImageViewModel.onPositivePromptChange(event.prompt)
+                }
+                is PromptPresetEvent.ShowToast -> {
+                    Toast.makeText(context, context.getString(event.messageResId), Toast.LENGTH_SHORT).show()
+                }
+                is PromptPresetEvent.MaxFavoritesReached -> {
+                    Toast.makeText(context, context.getString(R.string.prompt_preset_max_favorites), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -355,13 +405,26 @@ fun ImageToImageScreen(
         // Prompt Input
         OutlinedTextField(
             value = uiState.positivePrompt,
-            onValueChange = { imageToImageViewModel.onPositivePromptChange(it) },
+            onValueChange = {
+                imageToImageViewModel.onPositivePromptChange(it)
+                presetViewModel.clearActivePreset()
+            },
             label = { Text(stringResource(R.string.prompt_hint)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             minLines = 2,
             maxLines = 4,
+            leadingIcon = {
+                PromptPresetDropdown(
+                    favorites = presetUiState.favorites,
+                    activePresetId = presetUiState.activePresetId,
+                    currentPromptIsEmpty = uiState.positivePrompt.isEmpty(),
+                    onPresetSelected = { presetViewModel.onPresetSelected(it) },
+                    onOpenLibrary = { presetViewModel.showLibrary() },
+                    onSaveCurrentPrompt = { presetViewModel.showSaveDialog(uiState.positivePrompt) }
+                )
+            },
             trailingIcon = {
                 if (uiState.positivePrompt.isNotEmpty()) {
                     IconButton(onClick = { imageToImageViewModel.onPositivePromptChange("") }) {
@@ -488,7 +551,7 @@ fun ImageToImageScreen(
                 )
             }
         }
-    }
+    } // End of outer Column
 
     // Options bottom sheet
     if (showOptionsSheet) {
@@ -601,5 +664,38 @@ fun ImageToImageScreen(
                     uiState.selectedEditingWorkflow else uiState.selectedWorkflow
             )
         }
+    }
+
+    // Prompt Library Dialog
+    if (presetUiState.showLibrarySideSheet) {
+        PromptLibraryDialog(
+            presets = presetViewModel.getFilteredPresets(),
+            availableTags = presetUiState.availableTags,
+            searchQuery = presetUiState.searchQuery,
+            selectedTags = presetUiState.selectedTags,
+            filterFavoritesOnly = presetUiState.filterFavoritesOnly,
+            activePresetId = presetUiState.activePresetId,
+            onSearchQueryChange = { presetViewModel.onSearchQueryChange(it) },
+            onTagToggle = { presetViewModel.onTagToggle(it) },
+            onToggleFavoritesFilter = { presetViewModel.onToggleFavoritesFilter() },
+            onPresetSelected = { presetViewModel.onPresetSelected(it) },
+            onToggleFavorite = { presetViewModel.onToggleFavorite(it) },
+            onEditPreset = { presetViewModel.showEditDialog(it) },
+            onDuplicatePreset = { presetViewModel.onDuplicatePreset(it) },
+            onDeletePreset = { presetViewModel.onDeletePreset(it) },
+            onDismiss = { presetViewModel.dismissLibrary() }
+        )
+    }
+
+    // Prompt Preset Save/Edit Dialog
+    if (presetUiState.showSaveDialog) {
+        PromptPresetDialog(
+            editingPreset = presetUiState.editingPreset,
+            currentPrompt = presetUiState.currentPromptForSave,
+            existingTags = presetUiState.availableTags,
+            isNameTaken = { name, excludeId -> presetViewModel.isNameTaken(name, excludeId) },
+            onDismiss = { presetViewModel.dismissSaveDialog() },
+            onSave = { name, prompt, tags -> presetViewModel.onSavePreset(name, prompt, tags) }
+        )
     }
 }

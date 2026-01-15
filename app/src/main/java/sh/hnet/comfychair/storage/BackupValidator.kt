@@ -3,6 +3,7 @@ package sh.hnet.comfychair.storage
 import org.json.JSONObject
 import sh.hnet.comfychair.WorkflowType
 import sh.hnet.comfychair.model.SamplerOptions
+import sh.hnet.comfychair.model.ScreenType
 import sh.hnet.comfychair.util.ValidationUtils
 
 /**
@@ -57,6 +58,11 @@ class BackupValidator {
         const val MAX_SCALE_BY = 8.0f
         const val MIN_STOP_AT_CLIP_LAYER = -24
         const val MAX_STOP_AT_CLIP_LAYER = 0
+
+        // Prompt preset validation
+        const val MAX_PRESET_NAME_LENGTH = 100
+        const val MAX_TAG_LENGTH = 50
+        const val MAX_TAGS_PER_PRESET = 20
     }
 
     /**
@@ -319,6 +325,32 @@ class BackupValidator {
             if (sanitized.length() > 0) sanitized.toString() else null
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /**
+     * Validate preset name format.
+     */
+    fun validatePresetName(name: String): Boolean {
+        return name.isNotBlank() && name.length <= MAX_PRESET_NAME_LENGTH
+    }
+
+    /**
+     * Validate preset tag format.
+     */
+    fun validateTag(tag: String): Boolean {
+        return tag.isNotBlank() && tag.length <= MAX_TAG_LENGTH
+    }
+
+    /**
+     * Validate screen type against ScreenType enum values.
+     */
+    fun validateScreenType(type: String): Boolean {
+        return try {
+            ScreenType.valueOf(type)
+            true
+        } catch (e: IllegalArgumentException) {
+            false
         }
     }
 }

@@ -307,16 +307,25 @@ object WorkflowManager {
 
     /**
      * Generate a unique name for duplicating a workflow.
-     * Returns "Name 1", "Name 2", etc. until a unique name is found.
+     * Returns "Name (1)", "Name (2)", etc. until a unique name is found.
+     * The original name is kept intact, e.g. "My Workflow (2)" becomes "My Workflow (2) (1)".
      */
-    fun generateUniqueDuplicateName(baseName: String): String {
-        var counter = 1
-        var candidateName = "$baseName $counter"
-        while (isWorkflowNameTaken(candidateName)) {
-            counter++
-            candidateName = "$baseName $counter"
+    fun generateUniqueDuplicateName(originalName: String): String {
+        val existingNames = workflows.map { it.name }.toSet()
+
+        // Find all numbers already used with this exact base name
+        val numberPattern = Regex("""^\Q$originalName\E \((\d+)\)$""", RegexOption.IGNORE_CASE)
+        val usedNumbers = existingNames.mapNotNull { name ->
+            numberPattern.matchEntire(name)?.groupValues?.get(1)?.toIntOrNull()
+        }.toSet()
+
+        // Find the next available number starting from 1
+        var nextNumber = 1
+        while (nextNumber in usedNumbers) {
+            nextNumber++
         }
-        return candidateName
+
+        return "$originalName ($nextNumber)"
     }
 
     /**

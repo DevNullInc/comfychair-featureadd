@@ -43,7 +43,7 @@ class BackupManager(private val context: Context) {
 
     companion object {
         private const val TAG = "BackupManager"
-        const val BACKUP_VERSION = 4
+        const val BACKUP_VERSION = 5
         private const val USER_WORKFLOWS_DIR = "user_workflows"
 
         // SharedPreferences names
@@ -54,6 +54,7 @@ class BackupManager(private val context: Context) {
         private const val PREFS_IMAGE_TO_VIDEO = "ImageToVideoFragmentPrefs"
         private const val PREFS_WORKFLOW_VALUES = "WorkflowValuesPrefs"
         private const val PREFS_USER_WORKFLOWS = "UserWorkflowsPrefs"
+        private const val PREFS_PROMPT_PRESETS = "PromptPresetPrefs"
     }
 
     private val validator = BackupValidator()
@@ -86,6 +87,7 @@ class BackupManager(private val context: Context) {
                 put("screenPreferences", readScreenPreferences(servers))
                 put("workflowValues", readWorkflowValues(servers))
                 put("userWorkflows", readUserWorkflows())
+                put("promptPresets", readPromptPresets())
             }
 
             DebugLogger.i(TAG, "Backup created successfully with ${servers.size} servers")
@@ -117,10 +119,10 @@ class BackupManager(private val context: Context) {
             return RestoreResult.Failure(R.string.backup_error_invalid_json)
         }
 
-        // Check version - only v4 is supported
+        // Check version - v4 and v5 are supported
         val version = json.optInt("version", -1)
-        if (version != BACKUP_VERSION) {
-            DebugLogger.e(TAG, "Unsupported backup version: $version (required: $BACKUP_VERSION)")
+        if (version !in 4..BACKUP_VERSION) {
+            DebugLogger.e(TAG, "Unsupported backup version: $version (required: 4-$BACKUP_VERSION)")
             return RestoreResult.Failure(R.string.backup_error_unsupported_version)
         }
 
@@ -186,6 +188,11 @@ class BackupManager(private val context: Context) {
         var skippedWorkflows = 0
         json.optJSONArray("userWorkflows")?.let { workflows ->
             skippedWorkflows = restoreUserWorkflows(workflows)
+        }
+
+        // Restore prompt presets (v5+)
+        json.optJSONArray("promptPresets")?.let { presets ->
+            restorePromptPresets(presets)
         }
 
         DebugLogger.i(TAG, "Backup restore completed. Servers changed: $serversChanged, skipped workflows: $skippedWorkflows")
@@ -315,6 +322,17 @@ class BackupManager(private val context: Context) {
         }
 
         return result
+    }
+
+    private fun readPromptPresets(): JSONArray {
+        val prefs = context.getSharedPreferences(PREFS_PROMPT_PRESETS, Context.MODE_PRIVATE)
+        val presetsJson = prefs.getString("presets_json", null) ?: return JSONArray()
+
+        return try {
+            JSONArray(presetsJson)
+        } catch (e: Exception) {
+            JSONArray()
+        }
     }
 
     // Restore methods
@@ -631,6 +649,92 @@ class BackupManager(private val context: Context) {
 
         DebugLogger.i(TAG, "User workflows restored: $restored, skipped: $skipped")
         return skipped
+    }
+
+    /**
+     * Restore prompt presets.
+     * Merges with existing presets, skipping duplicates by ID.
+     */
+    private fun restorePromptPresets(presets: JSONArray) {
+        val prefs = context.getSharedPreferences(PREFS_PROMPT_PRESETS, Context.MODE_PRIVATE)
+        val existingJson = prefs.getString("presets_json", null)
+        val existingArray = if (existingJson != null) {
+            try { JSONArray(existingJson) } catch (e: Exception) { JSONArray() }
+        } else {
+            JSONArray()
+        }
+
+        // Collect existing preset IDs to avoid duplicates
+        val existingIds = mutableSetOf<String>()
+        for (i in 0 until existingArray.length()) {
+            existingArray.optJSONObject(i)?.optString("id")?.let { existingIds.add(it) }
+        }
+
+        var restored = 0
+        var skipped = 0
+
+        for (i in 0 until presets.length()) {
+            try {
+                val preset = presets.getJSONObject(i)
+                val id = preset.optString("id")
+                val screenType = preset.optString("screenType")
+                val name = preset.optString("name")
+                val prompt = preset.optString("prompt")
+                val tagsArray = preset.optJSONArray("tags")
+                val isFavorite = preset.optBoolean("isFavorite", false)
+                val createdAt = preset.optLong("createdAt", System.currentTimeMillis())
+
+                // Validate required fields
+                if (id.isBlank() || !validator.validateScreenType(screenType) ||
+                    !validator.validatePresetName(name)) {
+                    skipped++
+                    continue
+                }
+
+                // Skip if preset with same ID already exists
+                if (id in existingIds) {
+                    skipped++
+                    continue
+                }
+
+                // Validate and sanitize tags
+                val validTags = JSONArray()
+                if (tagsArray != null) {
+                    val tagCount = minOf(tagsArray.length(), BackupValidator.MAX_TAGS_PER_PRESET)
+                    for (j in 0 until tagCount) {
+                        val tag = tagsArray.optString(j)
+                        if (validator.validateTag(tag)) {
+                            validTags.put(validator.sanitizeString(tag, BackupValidator.MAX_TAG_LENGTH))
+                        }
+                    }
+                }
+
+                // Sanitize prompt
+                val sanitizedPrompt = validator.validateAndSanitizePrompt(prompt) ?: ""
+
+                // Create validated preset JSON
+                val validatedPreset = JSONObject().apply {
+                    put("id", id)
+                    put("screenType", screenType)
+                    put("name", validator.sanitizeString(name, BackupValidator.MAX_PRESET_NAME_LENGTH))
+                    put("prompt", sanitizedPrompt)
+                    put("tags", validTags)
+                    put("isFavorite", isFavorite)
+                    put("createdAt", createdAt)
+                }
+
+                existingArray.put(validatedPreset)
+                existingIds.add(id)
+                restored++
+            } catch (e: Exception) {
+                skipped++
+            }
+        }
+
+        // Save updated presets
+        prefs.edit().putString("presets_json", existingArray.toString()).apply()
+
+        DebugLogger.i(TAG, "Prompt presets restored: $restored, skipped: $skipped")
     }
 
     /**
