@@ -508,6 +508,8 @@
     <string name="button_continue">Continue</string>
     <string name="button_dismiss">Dismiss</string>
     <string name="button_confirm">Confirm</string>
+    <string name="button_apply">Apply</string>
+    <string name="button_done">Done</string>
     <string name="button_ok">OK</string>
     <string name="validating_workflow">Validating workflow…</string>
 

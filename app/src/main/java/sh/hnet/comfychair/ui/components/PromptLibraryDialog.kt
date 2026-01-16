@@ -318,10 +318,18 @@ fun PromptLibraryDialog(
                     Button(
                         onClick = {
                             selectedPresetId?.let { onPresetSelected(it) }
-                        },
-                        enabled = selectedPresetId != null
+                            onDismiss()
+                        }
                     ) {
-                        Text(stringResource(R.string.button_confirm))
+                        Text(
+                            stringResource(
+                                if (selectedPresetId != null) {
+                                    R.string.button_apply
+                                } else {
+                                    R.string.button_done
+                                }
+                            )
+                        )
                     }
                 }
             }

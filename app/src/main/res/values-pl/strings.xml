@@ -378,6 +378,8 @@
     <string name="button_continue">Kontynuuj</string>
     <string name="button_dismiss">Zamknij</string>
     <string name="button_confirm">Potwierdź</string>
+    <string name="button_apply">Zastosuj</string>
+    <string name="button_done">Gotowe</string>
     <string name="button_ok">OK</string>
     <string name="validating_workflow">Walidacja przepływu pracy…</string>
 

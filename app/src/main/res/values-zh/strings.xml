@@ -378,6 +378,8 @@
     <string name="button_continue">继续</string>
     <string name="button_dismiss">关闭</string>
     <string name="button_confirm">确认</string>
+    <string name="button_apply">应用</string>
+    <string name="button_done">完成</string>
     <string name="button_ok">确定</string>
     <string name="validating_workflow">正在验证工作流…</string>
 
