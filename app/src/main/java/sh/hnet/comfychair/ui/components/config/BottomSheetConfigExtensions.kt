@@ -412,6 +412,14 @@ private fun buildEditingModeModelConfig(
     callbacks: UnifiedCallbacks
 ): ModelConfig {
     return ModelConfig(
+        checkpoint = if (caps.hasCheckpointName) ModelField(
+            label = R.string.label_checkpoint,
+            selectedValue = state.selectedEditingCheckpoint,
+            options = state.availableCheckpoints,
+            filteredOptions = state.filteredCheckpoints,
+            onValueChange = callbacks.onEditingCheckpointChange ?: noOpString,
+            isVisible = true
+        ) else null,
         unet = if (caps.hasUnetName) ModelField(
             label = R.string.label_unet,
             selectedValue = state.selectedEditingUnet,
@@ -482,6 +490,39 @@ private fun buildEditingModeModelConfig(
             options = state.availableLatentUpscaleModels,
             filteredOptions = state.filteredLatentUpscaleModels,
             onValueChange = callbacks.onEditingLatentUpscaleModelChange ?: noOpString,
+            isVisible = true
+        ) else null,
+        // Dual-model patterns (for video-style workflows in editing mode)
+        highnoiseUnet = if (caps.hasHighnoiseUnetName) ModelField(
+            label = R.string.highnoise_unet_label,
+            selectedValue = state.selectedEditingHighnoiseUnet,
+            options = state.availableUnets,
+            filteredOptions = null,
+            onValueChange = callbacks.onEditingHighnoiseUnetChange ?: noOpString,
+            isVisible = true
+        ) else null,
+        lownoiseUnet = if (caps.hasLownoiseUnetName) ModelField(
+            label = R.string.lownoise_unet_label,
+            selectedValue = state.selectedEditingLownoiseUnet,
+            options = state.availableUnets,
+            filteredOptions = null,
+            onValueChange = callbacks.onEditingLownoiseUnetChange ?: noOpString,
+            isVisible = true
+        ) else null,
+        highnoiseLora = if (caps.hasHighnoiseLoraName) ModelField(
+            label = R.string.highnoise_lora_label,
+            selectedValue = state.selectedEditingHighnoiseLora,
+            options = state.availableLoras,
+            filteredOptions = null,
+            onValueChange = callbacks.onEditingHighnoiseLoraChange ?: noOpString,
+            isVisible = true
+        ) else null,
+        lownoiseLora = if (caps.hasLownoiseLoraName) ModelField(
+            label = R.string.lownoise_lora_label,
+            selectedValue = state.selectedEditingLownoiseLora,
+            options = state.availableLoras,
+            filteredOptions = null,
+            onValueChange = callbacks.onEditingLownoiseLoraChange ?: noOpString,
             isVisible = true
         ) else null
     )
@@ -598,6 +639,27 @@ private fun buildEditingModeLoraConfig(
             onRemove = callbacks.onRemoveEditingLora ?: noOpInt,
             onNameChange = callbacks.onEditingLoraNameChange ?: noOpIntString,
             onStrengthChange = callbacks.onEditingLoraStrengthChange ?: noOpIntFloat,
+            isVisible = true
+        ) else null,
+        // Dual LoRA chains (for video-style workflows in editing mode)
+        highnoiseChain = if (caps.hasHighnoiseLora) LoraChainField(
+            title = R.string.highnoise_lora_chain_title,
+            chain = state.editingHighnoiseLoraChain,
+            availableLoras = state.availableLoras,
+            onAdd = callbacks.onAddEditingHighnoiseLora ?: noOpUnit,
+            onRemove = callbacks.onRemoveEditingHighnoiseLora ?: noOpInt,
+            onNameChange = callbacks.onEditingHighnoiseLoraNameChange ?: noOpIntString,
+            onStrengthChange = callbacks.onEditingHighnoiseLoraStrengthChange ?: noOpIntFloat,
+            isVisible = true
+        ) else null,
+        lownoiseChain = if (caps.hasLownoiseLora) LoraChainField(
+            title = R.string.lownoise_lora_chain_title,
+            chain = state.editingLownoiseLoraChain,
+            availableLoras = state.availableLoras,
+            onAdd = callbacks.onAddEditingLownoiseLora ?: noOpUnit,
+            onRemove = callbacks.onRemoveEditingLownoiseLora ?: noOpInt,
+            onNameChange = callbacks.onEditingLownoiseLoraNameChange ?: noOpIntString,
+            onStrengthChange = callbacks.onEditingLownoiseLoraStrengthChange ?: noOpIntFloat,
             isVisible = true
         ) else null
     )

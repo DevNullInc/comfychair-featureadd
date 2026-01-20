@@ -1056,7 +1056,13 @@ class ImageToVideoViewModel : BaseGenerationViewModel<ImageToVideoUiState, Image
                 height = height,
                 length = length,
                 fps = fps,
-                imageFilename = uploadedFilename
+                imageFilename = uploadedFilename,
+                // Generation parameters
+                steps = state.steps.toIntOrNull(),
+                cfg = state.cfg.toFloatOrNull(),
+                samplerName = state.sampler,
+                scheduler = state.scheduler,
+                denoise = state.denoise.toFloatOrNull()
             ) ?: return null
 
             // Inject LoRAs if configured

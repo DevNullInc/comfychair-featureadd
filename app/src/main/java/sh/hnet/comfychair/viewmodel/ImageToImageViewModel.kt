@@ -214,6 +214,19 @@ data class ImageToImageUiState(
     val selectedEditingTextEncoder: String = "",
     val selectedEditingLatentUpscaleModel: String = "",
 
+    // Editing mode - checkpoint (for checkpoint-based workflows)
+    val selectedEditingCheckpoint: String = "",
+
+    // Editing mode - dual-model patterns (highnoise/lownoise for video-style workflows)
+    val selectedEditingHighnoiseUnet: String = "",
+    val selectedEditingLownoiseUnet: String = "",
+    val selectedEditingHighnoiseLora: String = "",
+    val selectedEditingLownoiseLora: String = "",
+
+    // Editing mode - dual LoRA chains
+    val editingHighnoiseLoraChain: List<LoraSelection> = emptyList(),
+    val editingLownoiseLoraChain: List<LoraSelection> = emptyList(),
+
     // Editing parameters
     val editingMegapixels: String = "2.0",
     val editingSteps: String = "4",
@@ -247,6 +260,13 @@ data class ImageToImageUiState(
     val deferredEditingLora: String? = null,
     val deferredEditingTextEncoder: String? = null,
     val deferredEditingLatentUpscaleModel: String? = null,
+
+    // Deferred model selections for editing - checkpoint and dual-model patterns
+    val deferredEditingCheckpoint: String? = null,
+    val deferredEditingHighnoiseUnet: String? = null,
+    val deferredEditingLownoiseUnet: String? = null,
+    val deferredEditingHighnoiseLora: String? = null,
+    val deferredEditingLownoiseLora: String? = null,
 
     // Upload state
     val isUploading: Boolean = false
@@ -328,6 +348,16 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
                         ?: validateModelSelection(state.selectedEditingTextEncoder, cache.textEncoders)
                     val editingLatentUpscaleModel = state.deferredEditingLatentUpscaleModel?.takeIf { it in cache.latentUpscaleModels }
                         ?: validateModelSelection(state.selectedEditingLatentUpscaleModel, cache.latentUpscaleModels)
+                    val editingCheckpoint = state.deferredEditingCheckpoint?.takeIf { it in cache.checkpoints }
+                        ?: validateModelSelection(state.selectedEditingCheckpoint, cache.checkpoints)
+                    val editingHighnoiseUnet = state.deferredEditingHighnoiseUnet?.takeIf { it in cache.unets }
+                        ?: validateModelSelection(state.selectedEditingHighnoiseUnet, cache.unets)
+                    val editingLownoiseUnet = state.deferredEditingLownoiseUnet?.takeIf { it in cache.unets }
+                        ?: validateModelSelection(state.selectedEditingLownoiseUnet, cache.unets)
+                    val editingHighnoiseLora = state.deferredEditingHighnoiseLora?.takeIf { it in cache.loras }
+                        ?: validateModelSelection(state.selectedEditingHighnoiseLora, cache.loras)
+                    val editingLownoiseLora = state.deferredEditingLownoiseLora?.takeIf { it in cache.loras }
+                        ?: validateModelSelection(state.selectedEditingLownoiseLora, cache.loras)
 
                     state.copy(
                         availableCheckpoints = cache.checkpoints,
@@ -358,6 +388,11 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
                         selectedEditingLora = editingLora,
                         selectedEditingTextEncoder = editingTextEncoder,
                         selectedEditingLatentUpscaleModel = editingLatentUpscaleModel,
+                        selectedEditingCheckpoint = editingCheckpoint,
+                        selectedEditingHighnoiseUnet = editingHighnoiseUnet,
+                        selectedEditingLownoiseUnet = editingLownoiseUnet,
+                        selectedEditingHighnoiseLora = editingHighnoiseLora,
+                        selectedEditingLownoiseLora = editingLownoiseLora,
                         // Clear deferred values once applied
                         deferredCheckpoint = null,
                         deferredUnet = null,
@@ -379,8 +414,15 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
                         deferredEditingLora = null,
                         deferredEditingTextEncoder = null,
                         deferredEditingLatentUpscaleModel = null,
+                        deferredEditingCheckpoint = null,
+                        deferredEditingHighnoiseUnet = null,
+                        deferredEditingLownoiseUnet = null,
+                        deferredEditingHighnoiseLora = null,
+                        deferredEditingLownoiseLora = null,
                         loraChain = LoraChainManager.filterUnavailable(state.loraChain, cache.loras),
-                        editingLoraChain = LoraChainManager.filterUnavailable(state.editingLoraChain, cache.loras)
+                        editingLoraChain = LoraChainManager.filterUnavailable(state.editingLoraChain, cache.loras),
+                        editingHighnoiseLoraChain = LoraChainManager.filterUnavailable(state.editingHighnoiseLoraChain, cache.loras),
+                        editingLownoiseLoraChain = LoraChainManager.filterUnavailable(state.editingLownoiseLoraChain, cache.loras)
                     )
                 }
             }
@@ -708,6 +750,12 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
         val savedEditingLora = savedValues?.loraModel
         val savedEditingTextEncoder = savedValues?.textEncoderModel
         val savedEditingLatentUpscaleModel = savedValues?.latentUpscaleModel
+        // Checkpoint and dual-model patterns (for checkpoint-based and video-style workflows)
+        val savedEditingCheckpoint = savedValues?.model  // same field as UNET, workflow type determines usage
+        val savedEditingHighnoiseUnet = savedValues?.highnoiseUnetModel
+        val savedEditingLownoiseUnet = savedValues?.lownoiseUnetModel
+        val savedEditingHighnoiseLora = savedValues?.highnoiseLoraModel
+        val savedEditingLownoiseLora = savedValues?.lownoiseLoraModel
 
         val state = _uiState.value
         _uiState.value = state.copy(
@@ -747,6 +795,17 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
                 ?: validateModelSelection(state.selectedEditingTextEncoder, cache.textEncoders),
             selectedEditingLatentUpscaleModel = savedEditingLatentUpscaleModel?.takeIf { it in cache.latentUpscaleModels }
                 ?: validateModelSelection(state.selectedEditingLatentUpscaleModel, cache.latentUpscaleModels),
+            // Checkpoint and dual-model patterns (for checkpoint-based and video-style workflows)
+            selectedEditingCheckpoint = savedEditingCheckpoint?.takeIf { it in cache.checkpoints }
+                ?: validateModelSelection(state.selectedEditingCheckpoint, cache.checkpoints),
+            selectedEditingHighnoiseUnet = savedEditingHighnoiseUnet?.takeIf { it in cache.unets }
+                ?: validateModelSelection(state.selectedEditingHighnoiseUnet, cache.unets),
+            selectedEditingLownoiseUnet = savedEditingLownoiseUnet?.takeIf { it in cache.unets }
+                ?: validateModelSelection(state.selectedEditingLownoiseUnet, cache.unets),
+            selectedEditingHighnoiseLora = savedEditingHighnoiseLora?.takeIf { it in cache.loras }
+                ?: validateModelSelection(state.selectedEditingHighnoiseLora, cache.loras),
+            selectedEditingLownoiseLora = savedEditingLownoiseLora?.takeIf { it in cache.loras }
+                ?: validateModelSelection(state.selectedEditingLownoiseLora, cache.loras),
             // Set deferred values - these will be applied when model cache updates
             deferredEditingUnet = savedEditingUnet,
             deferredEditingVae = savedEditingVae,
@@ -758,9 +817,16 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
             deferredEditingLora = savedEditingLora,
             deferredEditingTextEncoder = savedEditingTextEncoder,
             deferredEditingLatentUpscaleModel = savedEditingLatentUpscaleModel,
+            deferredEditingCheckpoint = savedEditingCheckpoint,
+            deferredEditingHighnoiseUnet = savedEditingHighnoiseUnet,
+            deferredEditingLownoiseUnet = savedEditingLownoiseUnet,
+            deferredEditingHighnoiseLora = savedEditingHighnoiseLora,
+            deferredEditingLownoiseLora = savedEditingLownoiseLora,
             editingLoraChain = savedValues?.loraChain?.let { LoraSelection.fromJsonString(it) } ?: emptyList(),
-            // Workflow-specific filtered options (editing mode uses UNET)
-            filteredCheckpoints = null,
+            editingHighnoiseLoraChain = savedValues?.highnoiseLoraChain?.let { LoraSelection.fromJsonString(it) } ?: emptyList(),
+            editingLownoiseLoraChain = savedValues?.lownoiseLoraChain?.let { LoraSelection.fromJsonString(it) } ?: emptyList(),
+            // Workflow-specific filtered options
+            filteredCheckpoints = WorkflowManager.getNodeSpecificOptionsForField(workflow.id, "ckpt_name"),
             filteredUnets = WorkflowManager.getNodeSpecificOptionsForField(workflow.id, "unet_name"),
             filteredVaes = WorkflowManager.getNodeSpecificOptionsForField(workflow.id, "vae_name"),
             filteredClips = WorkflowManager.getNodeSpecificOptionsForField(workflow.id, "clip_name"),
@@ -842,7 +908,9 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
             samplerName = state.editingSampler,
             scheduler = state.editingScheduler,
             negativePrompt = state.editingNegativePrompt.takeIf { it.isNotEmpty() },
-            model = state.selectedEditingUnet.takeIf { it.isNotEmpty() },
+            // model field stores checkpoint or UNET (whichever is set)
+            model = state.selectedEditingCheckpoint.takeIf { it.isNotEmpty() }
+                ?: state.selectedEditingUnet.takeIf { it.isNotEmpty() },
             loraModel = state.selectedEditingLora.takeIf { it.isNotEmpty() },
             vaeModel = state.selectedEditingVae.takeIf { it.isNotEmpty() },
             clipModel = state.selectedEditingClip.takeIf { it.isNotEmpty() },
@@ -852,7 +920,14 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
             clip4Model = state.selectedEditingClip4.takeIf { it.isNotEmpty() },
             textEncoderModel = state.selectedEditingTextEncoder.takeIf { it.isNotEmpty() },
             latentUpscaleModel = state.selectedEditingLatentUpscaleModel.takeIf { it.isNotEmpty() },
+            // Dual-model patterns (for video-style workflows in editing mode)
+            highnoiseUnetModel = state.selectedEditingHighnoiseUnet.takeIf { it.isNotEmpty() },
+            lownoiseUnetModel = state.selectedEditingLownoiseUnet.takeIf { it.isNotEmpty() },
+            highnoiseLoraModel = state.selectedEditingHighnoiseLora.takeIf { it.isNotEmpty() },
+            lownoiseLoraModel = state.selectedEditingLownoiseLora.takeIf { it.isNotEmpty() },
             loraChain = LoraSelection.toJsonString(state.editingLoraChain).takeIf { state.editingLoraChain.isNotEmpty() },
+            highnoiseLoraChain = LoraSelection.toJsonString(state.editingHighnoiseLoraChain).takeIf { state.editingHighnoiseLoraChain.isNotEmpty() },
+            lownoiseLoraChain = LoraSelection.toJsonString(state.editingLownoiseLoraChain).takeIf { state.editingLownoiseLoraChain.isNotEmpty() },
             nodeAttributeEdits = existingValues?.nodeAttributeEdits
         )
 
@@ -1461,6 +1536,31 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
         savePreferences()
     }
 
+    fun onEditingCheckpointChange(checkpoint: String) {
+        _uiState.value = _uiState.value.copy(selectedEditingCheckpoint = checkpoint)
+        savePreferences()
+    }
+
+    fun onEditingHighnoiseUnetChange(unet: String) {
+        _uiState.value = _uiState.value.copy(selectedEditingHighnoiseUnet = unet)
+        savePreferences()
+    }
+
+    fun onEditingLownoiseUnetChange(unet: String) {
+        _uiState.value = _uiState.value.copy(selectedEditingLownoiseUnet = unet)
+        savePreferences()
+    }
+
+    fun onEditingHighnoiseLoraChange(lora: String) {
+        _uiState.value = _uiState.value.copy(selectedEditingHighnoiseLora = lora)
+        savePreferences()
+    }
+
+    fun onEditingLownoiseLoraChange(lora: String) {
+        _uiState.value = _uiState.value.copy(selectedEditingLownoiseLora = lora)
+        savePreferences()
+    }
+
     fun onEditingMegapixelsChange(megapixels: String) {
         val error = ValidationUtils.validateMegapixels(megapixels, applicationContext)
         _uiState.value = _uiState.value.copy(
@@ -1577,6 +1677,80 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
         if (newChain === state.editingLoraChain) return // No change
 
         _uiState.value = state.copy(editingLoraChain = newChain)
+        savePreferences()
+    }
+
+    // Editing mode dual LoRA chain callbacks (highnoise/lownoise)
+
+    fun onAddEditingHighnoiseLora() {
+        val state = _uiState.value
+        val newChain = LoraChainManager.addLora(state.editingHighnoiseLoraChain, state.availableLoras)
+        if (newChain === state.editingHighnoiseLoraChain) return // No change
+
+        _uiState.value = state.copy(editingHighnoiseLoraChain = newChain)
+        savePreferences()
+    }
+
+    fun onRemoveEditingHighnoiseLora(index: Int) {
+        val state = _uiState.value
+        val newChain = LoraChainManager.removeLora(state.editingHighnoiseLoraChain, index)
+        if (newChain === state.editingHighnoiseLoraChain) return // No change
+
+        _uiState.value = state.copy(editingHighnoiseLoraChain = newChain)
+        savePreferences()
+    }
+
+    fun onEditingHighnoiseLoraNameChange(index: Int, name: String) {
+        val state = _uiState.value
+        val newChain = LoraChainManager.updateLoraName(state.editingHighnoiseLoraChain, index, name)
+        if (newChain === state.editingHighnoiseLoraChain) return // No change
+
+        _uiState.value = state.copy(editingHighnoiseLoraChain = newChain)
+        savePreferences()
+    }
+
+    fun onEditingHighnoiseLoraStrengthChange(index: Int, strength: Float) {
+        val state = _uiState.value
+        val newChain = LoraChainManager.updateLoraStrength(state.editingHighnoiseLoraChain, index, strength)
+        if (newChain === state.editingHighnoiseLoraChain) return // No change
+
+        _uiState.value = state.copy(editingHighnoiseLoraChain = newChain)
+        savePreferences()
+    }
+
+    fun onAddEditingLownoiseLora() {
+        val state = _uiState.value
+        val newChain = LoraChainManager.addLora(state.editingLownoiseLoraChain, state.availableLoras)
+        if (newChain === state.editingLownoiseLoraChain) return // No change
+
+        _uiState.value = state.copy(editingLownoiseLoraChain = newChain)
+        savePreferences()
+    }
+
+    fun onRemoveEditingLownoiseLora(index: Int) {
+        val state = _uiState.value
+        val newChain = LoraChainManager.removeLora(state.editingLownoiseLoraChain, index)
+        if (newChain === state.editingLownoiseLoraChain) return // No change
+
+        _uiState.value = state.copy(editingLownoiseLoraChain = newChain)
+        savePreferences()
+    }
+
+    fun onEditingLownoiseLoraNameChange(index: Int, name: String) {
+        val state = _uiState.value
+        val newChain = LoraChainManager.updateLoraName(state.editingLownoiseLoraChain, index, name)
+        if (newChain === state.editingLownoiseLoraChain) return // No change
+
+        _uiState.value = state.copy(editingLownoiseLoraChain = newChain)
+        savePreferences()
+    }
+
+    fun onEditingLownoiseLoraStrengthChange(index: Int, strength: Float) {
+        val state = _uiState.value
+        val newChain = LoraChainManager.updateLoraStrength(state.editingLownoiseLoraChain, index, strength)
+        if (newChain === state.editingLownoiseLoraChain) return // No change
+
+        _uiState.value = state.copy(editingLownoiseLoraChain = newChain)
         savePreferences()
     }
 
@@ -1731,6 +1905,7 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
             workflowId = state.selectedEditingWorkflowId,
             positivePrompt = state.positivePrompt,
             negativePrompt = state.editingNegativePrompt,
+            checkpoint = state.selectedEditingCheckpoint,
             unet = state.selectedEditingUnet,
             lora = state.selectedEditingLora,
             vae = state.selectedEditingVae,
@@ -1741,6 +1916,10 @@ class ImageToImageViewModel : BaseGenerationViewModel<ImageToImageUiState, Image
             clip4 = state.selectedEditingClip4.takeIf { it.isNotEmpty() },
             textEncoder = state.selectedEditingTextEncoder.takeIf { it.isNotEmpty() },
             latentUpscaleModel = state.selectedEditingLatentUpscaleModel.takeIf { it.isNotEmpty() },
+            highnoiseUnet = state.selectedEditingHighnoiseUnet,
+            lownoiseUnet = state.selectedEditingLownoiseUnet,
+            highnoiseLora = state.selectedEditingHighnoiseLora,
+            lownoiseLora = state.selectedEditingLownoiseLora,
             megapixels = state.editingMegapixels.toFloatOrNull() ?: 2.0f,
             steps = state.editingSteps.toIntOrNull() ?: 4,
             cfg = state.editingCfg.toFloatOrNull() ?: 1.0f,

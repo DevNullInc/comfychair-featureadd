@@ -971,7 +971,13 @@ class TextToVideoViewModel : BaseGenerationViewModel<TextToVideoUiState, TextToV
             width = width,
             height = height,
             length = length,
-            fps = fps
+            fps = fps,
+            // Generation parameters
+            steps = state.steps.toIntOrNull(),
+            cfg = state.cfg.toFloatOrNull(),
+            samplerName = state.sampler,
+            scheduler = state.scheduler,
+            denoise = state.denoise.toFloatOrNull()
         ) ?: return null
 
         // Inject LoRAs if configured

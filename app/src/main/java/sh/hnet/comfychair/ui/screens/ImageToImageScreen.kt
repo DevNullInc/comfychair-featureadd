@@ -656,7 +656,23 @@ fun ImageToImageScreen(
                     onAddEditingLora = imageToImageViewModel::onAddEditingLora,
                     onRemoveEditingLora = imageToImageViewModel::onRemoveEditingLora,
                     onEditingLoraNameChange = imageToImageViewModel::onEditingLoraNameChange,
-                    onEditingLoraStrengthChange = imageToImageViewModel::onEditingLoraStrengthChange
+                    onEditingLoraStrengthChange = imageToImageViewModel::onEditingLoraStrengthChange,
+                    // Editing mode checkpoint (for checkpoint-based workflows)
+                    onEditingCheckpointChange = imageToImageViewModel::onEditingCheckpointChange,
+                    // Editing mode dual-model patterns (for video-style workflows)
+                    onEditingHighnoiseUnetChange = imageToImageViewModel::onEditingHighnoiseUnetChange,
+                    onEditingLownoiseUnetChange = imageToImageViewModel::onEditingLownoiseUnetChange,
+                    onEditingHighnoiseLoraChange = imageToImageViewModel::onEditingHighnoiseLoraChange,
+                    onEditingLownoiseLoraChange = imageToImageViewModel::onEditingLownoiseLoraChange,
+                    // Editing mode dual LoRA chain callbacks
+                    onAddEditingHighnoiseLora = imageToImageViewModel::onAddEditingHighnoiseLora,
+                    onRemoveEditingHighnoiseLora = imageToImageViewModel::onRemoveEditingHighnoiseLora,
+                    onEditingHighnoiseLoraNameChange = imageToImageViewModel::onEditingHighnoiseLoraNameChange,
+                    onEditingHighnoiseLoraStrengthChange = imageToImageViewModel::onEditingHighnoiseLoraStrengthChange,
+                    onAddEditingLownoiseLora = imageToImageViewModel::onAddEditingLownoiseLora,
+                    onRemoveEditingLownoiseLora = imageToImageViewModel::onRemoveEditingLownoiseLora,
+                    onEditingLownoiseLoraNameChange = imageToImageViewModel::onEditingLownoiseLoraNameChange,
+                    onEditingLownoiseLoraStrengthChange = imageToImageViewModel::onEditingLownoiseLoraStrengthChange
                 )
             }
             val bottomSheetConfig = remember(uiState, callbacks) {

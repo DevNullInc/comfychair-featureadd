@@ -1751,6 +1751,7 @@ object WorkflowManager {
         workflowId: String,
         positivePrompt: String,
         negativePrompt: String = "",
+        checkpoint: String = "",
         unet: String,
         lora: String,
         vae: String,
@@ -1761,6 +1762,11 @@ object WorkflowManager {
         clip4: String? = null,
         textEncoder: String? = null,
         latentUpscaleModel: String? = null,
+        // Dual-model patterns (for video-style workflows)
+        highnoiseUnet: String = "",
+        lownoiseUnet: String = "",
+        highnoiseLora: String = "",
+        lownoiseLora: String = "",
         megapixels: Float = 2.0f,
         steps: Int,
         cfg: Float = 1.0f,
@@ -1793,6 +1799,10 @@ object WorkflowManager {
         // Type-specific placeholders: prompts and models
         processedJson = processedJson.replace("{{positive_prompt}}", escapedPositivePrompt)
         processedJson = processedJson.replace("{{negative_prompt}}", escapedNegativePrompt)
+        // Checkpoint (for checkpoint-based workflows like CheckpointLoaderSimple)
+        if (checkpoint.isNotEmpty()) {
+            processedJson = processedJson.replace("{{ckpt_name}}", escapeForJson(checkpoint))
+        }
         processedJson = processedJson.replace("{{unet_name}}", escapeForJson(unet))
         processedJson = processedJson.replace("{{lora_name}}", escapeForJson(lora))
         processedJson = processedJson.replace("{{vae_name}}", escapeForJson(vae))
@@ -1803,6 +1813,19 @@ object WorkflowManager {
         clip4?.let { processedJson = processedJson.replace("{{clip_name4}}", escapeForJson(it)) }
         textEncoder?.let { processedJson = processedJson.replace("{{text_encoder_name}}", escapeForJson(it)) }
         latentUpscaleModel?.let { processedJson = processedJson.replace("{{latent_upscale_model}}", escapeForJson(it)) }
+        // Dual-model patterns (for video-style workflows)
+        if (highnoiseUnet.isNotEmpty()) {
+            processedJson = processedJson.replace("{{highnoise_unet_name}}", escapeForJson(highnoiseUnet))
+        }
+        if (lownoiseUnet.isNotEmpty()) {
+            processedJson = processedJson.replace("{{lownoise_unet_name}}", escapeForJson(lownoiseUnet))
+        }
+        if (highnoiseLora.isNotEmpty()) {
+            processedJson = processedJson.replace("{{highnoise_lora_name}}", escapeForJson(highnoiseLora))
+        }
+        if (lownoiseLora.isNotEmpty()) {
+            processedJson = processedJson.replace("{{lownoise_lora_name}}", escapeForJson(lownoiseLora))
+        }
 
         // Type-specific: source image placeholder (both template and literal formats)
         val escapedSourceFilename = escapeForJson(sourceImageFilename)
@@ -1936,7 +1959,13 @@ object WorkflowManager {
         width: Int,
         height: Int,
         length: Int,
-        fps: Int = 16
+        fps: Int = 16,
+        // Generation parameters (optional - workflow may have defaults)
+        steps: Int? = null,
+        cfg: Float? = null,
+        samplerName: String? = null,
+        scheduler: String? = null,
+        denoise: Float? = null
     ): String? {
         val workflow = getWorkflowById(workflowId) ?: return null
         DebugLogger.i(TAG, "Preparing TTV workflow: ${workflow.name} (id: $workflowId)")
@@ -1984,6 +2013,11 @@ object WorkflowManager {
         processedJson = replaceCommonPlaceholders(
             json = processedJson,
             seed = randomSeed,
+            steps = steps,
+            cfg = cfg,
+            samplerName = samplerName,
+            scheduler = scheduler,
+            denoise = denoise,
             width = width,
             height = height,
             length = length,
@@ -2024,7 +2058,13 @@ object WorkflowManager {
         height: Int,
         length: Int,
         fps: Int = 16,
-        imageFilename: String
+        imageFilename: String,
+        // Generation parameters (optional - workflow may have defaults)
+        steps: Int? = null,
+        cfg: Float? = null,
+        samplerName: String? = null,
+        scheduler: String? = null,
+        denoise: Float? = null
     ): String? {
         val workflow = getWorkflowById(workflowId) ?: return null
         DebugLogger.i(TAG, "Preparing ITV workflow: ${workflow.name} (id: $workflowId)")
@@ -2076,6 +2116,11 @@ object WorkflowManager {
         processedJson = replaceCommonPlaceholders(
             json = processedJson,
             seed = randomSeed,
+            steps = steps,
+            cfg = cfg,
+            samplerName = samplerName,
+            scheduler = scheduler,
+            denoise = denoise,
             width = width,
             height = height,
             length = length,

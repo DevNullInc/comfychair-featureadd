@@ -102,6 +102,15 @@ data class UnifiedCallbacks(
     val onEditingTextEncoderChange: ((String) -> Unit)? = null,
     val onEditingLatentUpscaleModelChange: ((String) -> Unit)? = null,
 
+    // === ITI-Specific: Editing Mode Checkpoint ===
+    val onEditingCheckpointChange: ((String) -> Unit)? = null,
+
+    // === ITI-Specific: Editing Mode Dual-Model Patterns ===
+    val onEditingHighnoiseUnetChange: ((String) -> Unit)? = null,
+    val onEditingLownoiseUnetChange: ((String) -> Unit)? = null,
+    val onEditingHighnoiseLoraChange: ((String) -> Unit)? = null,
+    val onEditingLownoiseLoraChange: ((String) -> Unit)? = null,
+
     // === ITI-Specific: Editing Mode Parameters ===
     val onEditingMegapixelsChange: ((String) -> Unit)? = null,
     val onEditingStepsChange: ((String) -> Unit)? = null,
@@ -121,5 +130,15 @@ data class UnifiedCallbacks(
     val onAddEditingLora: (() -> Unit)? = null,
     val onRemoveEditingLora: ((Int) -> Unit)? = null,
     val onEditingLoraNameChange: ((Int, String) -> Unit)? = null,
-    val onEditingLoraStrengthChange: ((Int, Float) -> Unit)? = null
+    val onEditingLoraStrengthChange: ((Int, Float) -> Unit)? = null,
+
+    // === ITI-Specific: Editing Mode Dual LoRA Chains ===
+    val onAddEditingHighnoiseLora: (() -> Unit)? = null,
+    val onRemoveEditingHighnoiseLora: ((Int) -> Unit)? = null,
+    val onEditingHighnoiseLoraNameChange: ((Int, String) -> Unit)? = null,
+    val onEditingHighnoiseLoraStrengthChange: ((Int, Float) -> Unit)? = null,
+    val onAddEditingLownoiseLora: (() -> Unit)? = null,
+    val onRemoveEditingLownoiseLora: ((Int) -> Unit)? = null,
+    val onEditingLownoiseLoraNameChange: ((Int, String) -> Unit)? = null,
+    val onEditingLownoiseLoraStrengthChange: ((Int, Float) -> Unit)? = null
 )
