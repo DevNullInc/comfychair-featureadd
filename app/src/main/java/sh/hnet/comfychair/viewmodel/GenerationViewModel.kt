@@ -899,7 +899,9 @@ class GenerationViewModel : ViewModel() {
         }
         dispatchEvent(event)
         completeGeneration(promptId)  // Pass promptId to prevent clearing state for a different job
-        // Gallery refresh handled by JobRegistry.markCompleted() via WebSocket event
+        // Clear JobRegistry state - ensures executingOwnerId is reset even when
+        // WebSocket events were missed (app was in background during completion)
+        JobRegistry.markCompleted(promptId)
     }
 
     /**
