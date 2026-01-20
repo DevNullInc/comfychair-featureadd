@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedIconToggleButton
@@ -60,7 +61,15 @@ fun SeedRow(
             onCheckedChange = { onRandomSeedToggle() },
             modifier = Modifier.size(56.dp),
             shape = CircleShape,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            colors = IconButtonDefaults.outlinedIconToggleButtonColors(
+                checkedContainerColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                checkedContentColor = MaterialTheme.colorScheme.surface
+            ),
+            border = BorderStroke(
+                1.dp,
+                if (randomSeed) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.outline
+            )
         ) {
             Icon(
                 imageVector = Icons.Filled.Shuffle,
