@@ -1664,7 +1664,8 @@ class WorkflowEditorViewModel : ViewModel() {
 
         // Calculate note dimensions (estimate - will be measured during drawing)
         val noteWidth = WorkflowLayoutEngine.NODE_WIDTH
-        val noteHeight = WorkflowLayoutEngine.NODE_HEADER_HEIGHT + WorkflowLayoutEngine.NOTE_BODY_PADDING
+        val rawNoteHeight = WorkflowLayoutEngine.NODE_HEADER_HEIGHT + WorkflowLayoutEngine.NOTE_BODY_PADDING
+        val noteHeight = WorkflowLayoutEngine.snapHeightToGrid(rawNoteHeight)
 
         // Calculate view center in graph coordinates
         val viewCenterX = (canvasWidth / 2 - state.offset.x) / state.scale
@@ -2368,10 +2369,11 @@ class WorkflowEditorViewModel : ViewModel() {
         val outputCount = nodeType.outputs.size
         val connectionAreaHeight = maxOf(connectionInputCount, outputCount) * WorkflowLayoutEngine.INPUT_ROW_HEIGHT
         val contentHeight = (literalInputCount * WorkflowLayoutEngine.INPUT_ROW_HEIGHT) + connectionAreaHeight
-        val nodeHeight = maxOf(
+        val rawNodeHeight = maxOf(
             WorkflowLayoutEngine.NODE_MIN_HEIGHT,
             WorkflowLayoutEngine.NODE_HEADER_HEIGHT + contentHeight + 16f
         )
+        val nodeHeight = WorkflowLayoutEngine.snapHeightToGrid(rawNodeHeight)
 
         // Create the new node (position will be set by layout engine)
         val newNode = WorkflowNode(
@@ -2745,10 +2747,11 @@ class WorkflowEditorViewModel : ViewModel() {
         val outputCount = nodeType.outputs.size
         val connectionAreaHeight = maxOf(connectionInputCount, outputCount) * WorkflowLayoutEngine.INPUT_ROW_HEIGHT
         val contentHeight = (literalInputCount * WorkflowLayoutEngine.INPUT_ROW_HEIGHT) + connectionAreaHeight
-        val nodeHeight = maxOf(
+        val rawNodeHeight = maxOf(
             WorkflowLayoutEngine.NODE_MIN_HEIGHT,
             WorkflowLayoutEngine.NODE_HEADER_HEIGHT + contentHeight + 16f
         )
+        val nodeHeight = WorkflowLayoutEngine.snapHeightToGrid(rawNodeHeight)
 
         // 3. Create the new node with a unique ID
         val newNodeId = generateUniqueNodeId()
@@ -2890,10 +2893,11 @@ class WorkflowEditorViewModel : ViewModel() {
         val outputCount = nodeType.outputs.size
         val connectionAreaHeight = maxOf(connectionInputCount, outputCount) * WorkflowLayoutEngine.INPUT_ROW_HEIGHT
         val contentHeight = (literalInputCount * WorkflowLayoutEngine.INPUT_ROW_HEIGHT) + connectionAreaHeight
-        val nodeHeight = maxOf(
+        val rawNodeHeight = maxOf(
             WorkflowLayoutEngine.NODE_MIN_HEIGHT,
             WorkflowLayoutEngine.NODE_HEADER_HEIGHT + contentHeight + 16f
         )
+        val nodeHeight = WorkflowLayoutEngine.snapHeightToGrid(rawNodeHeight)
 
         // 3. Create the new node with a unique ID
         val newNodeId = generateUniqueNodeId()
@@ -3288,10 +3292,11 @@ class WorkflowEditorViewModel : ViewModel() {
         val outputCount = nodeType.outputs.size
         val connectionAreaHeight = maxOf(connectionInputCount, outputCount) * WorkflowLayoutEngine.INPUT_ROW_HEIGHT
         val contentHeight = (literalInputCount * WorkflowLayoutEngine.INPUT_ROW_HEIGHT) + connectionAreaHeight
-        val nodeHeight = maxOf(
+        val rawNodeHeight = maxOf(
             WorkflowLayoutEngine.NODE_MIN_HEIGHT,
             WorkflowLayoutEngine.NODE_HEADER_HEIGHT + contentHeight + 16f
         )
+        val nodeHeight = WorkflowLayoutEngine.snapHeightToGrid(rawNodeHeight)
 
         // Calculate view center in graph coordinates
         val viewCenterX = (canvasWidth / 2 - state.offset.x) / state.scale

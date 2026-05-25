@@ -55,9 +55,7 @@ object FieldMappingAnalyzer {
                 FieldMappingState(
                     field = requiredField,
                     candidates = candidates,
-                    // Auto-select first candidate if any exist
-                    // User can change selection in mapping UI if needed
-                    selectedCandidateIndex = if (candidates.isNotEmpty()) 0 else -1
+                    selectedCandidateIndex = autoSelectIndex(fieldKey, candidates)
                 )
             )
         }
@@ -71,9 +69,7 @@ object FieldMappingAnalyzer {
                 FieldMappingState(
                     field = requiredField,
                     candidates = candidates,
-                    // Auto-select first candidate if any exist
-                    // User can change selection in mapping UI if needed
-                    selectedCandidateIndex = if (candidates.isNotEmpty()) 0 else -1
+                    selectedCandidateIndex = autoSelectIndex(fieldKey, candidates)
                 )
             )
         }
@@ -277,6 +273,21 @@ object FieldMappingAnalyzer {
             "positive_text" to positiveTextCandidates,
             "negative_text" to negativeTextCandidates
         )
+    }
+
+    /**
+     * Choose the auto-selected candidate index for a field.
+     *
+     * Prefers the candidate whose current value already matches the expected placeholder
+     * (set by a previous save), so re-editing a workflow keeps the correct node selected
+     * rather than defaulting to whichever node happens to be first in iteration order.
+     * Falls back to index 0 if no placeholder match is found.
+     */
+    private fun autoSelectIndex(fieldKey: String, candidates: List<FieldCandidate>): Int {
+        if (candidates.isEmpty()) return -1
+        val placeholderPattern = "{{${TemplateKeyRegistry.getPlaceholderForKey(fieldKey)}}}"
+        val preferred = candidates.indexOfFirst { it.currentValue?.toString() == placeholderPattern }
+        return if (preferred >= 0) preferred else 0
     }
 
     /**

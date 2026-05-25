@@ -32,6 +32,13 @@ class WorkflowLayoutEngine {
             return Pair(snappedX, snappedY)
         }
 
+        /**
+         * Snap a height value up to the nearest grid cell.
+         */
+        fun snapHeightToGrid(height: Float): Float {
+            return (kotlin.math.ceil(height / GRID_CELL_SIZE) * GRID_CELL_SIZE).toFloat()
+        }
+
         // Group constants
         const val GROUP_PADDING_TOP = 32f
         const val GROUP_PADDING_SIDE = 16f    // Left and right padding (50% of top)
@@ -843,6 +850,7 @@ class WorkflowLayoutEngine {
     /**
      * Calculate the height of a node based on its inputs and outputs.
      * Layout: Header -> Literal inputs -> Connection area (inputs left, outputs right)
+     * Height is rounded up to the nearest grid cell for clean grid alignment.
      */
     private fun calculateNodeHeight(node: WorkflowNode): Float {
         // Count literal inputs (editable key:value pairs)
@@ -864,16 +872,21 @@ class WorkflowLayoutEngine {
         // Total content height
         val contentHeight = (literalInputCount * INPUT_ROW_HEIGHT) + connectionAreaHeight
 
-        return maxOf(NODE_MIN_HEIGHT, NODE_HEADER_HEIGHT + contentHeight + 16f)
+        val rawHeight = maxOf(NODE_MIN_HEIGHT, NODE_HEADER_HEIGHT + contentHeight + 16f)
+        // Snap to grid (round up to nearest GRID_CELL_SIZE)
+        return (kotlin.math.ceil(rawHeight / GRID_CELL_SIZE) * GRID_CELL_SIZE).toFloat()
     }
 
     /**
      * Calculate the height of a note based on its content.
      * This is a fallback estimate - actual height is measured by TextMeasurer in drawNote().
+     * Height is rounded up to the nearest grid cell for clean grid alignment.
      */
     fun calculateNoteHeight(note: WorkflowNote): Float {
         val lines = note.content.lines().size.coerceAtLeast(1)
-        return lines * NOTE_LINE_HEIGHT + NODE_HEADER_HEIGHT + NOTE_BODY_PADDING
+        val rawHeight = lines * NOTE_LINE_HEIGHT + NODE_HEADER_HEIGHT + NOTE_BODY_PADDING
+        // Snap to grid (round up to nearest GRID_CELL_SIZE)
+        return (kotlin.math.ceil(rawHeight / GRID_CELL_SIZE) * GRID_CELL_SIZE).toFloat()
     }
 
     /**

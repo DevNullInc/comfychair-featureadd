@@ -671,8 +671,18 @@ object WorkflowManager {
             }
         }
 
-        // Remove placeholders for unmapped optional fields
-        // This prevents fields like {{highnoise_lora_name}} from appearing as "UI: ..." when not mapped
+        // Build reverse map: placeholder name -> target node ID for all mapped fields
+        val placeholderToTargetNodeId = fieldMappings.entries.associate { (fieldKey, mapping) ->
+            TemplateKeyRegistry.getPlaceholderForKey(fieldKey) to mapping.first
+        }
+
+        // Remove stale and unmapped placeholders in a single pass:
+        // - Stale: node still holds {{placeholder}} for a MAPPED field but is no longer the
+        //   target node (left over when the user re-saves with a different node selected).
+        //   replaceCommonPlaceholders() does a global String.replace, so a stale placeholder
+        //   in an unrelated node (e.g. {{latent_upscale_model}} in UltralyticsDetectorProvider)
+        //   would receive the wrong value and cause a server 400 error.
+        // - Unmapped: node holds {{placeholder}} for an optional field that has no mapping at all.
         val mappedFieldKeys = fieldMappings.keys
         val allOptionalKeys = TemplateKeyRegistry.getOptionalKeysForType(type)
         val unmappedOptionalKeys = allOptionalKeys - mappedFieldKeys
@@ -684,17 +694,20 @@ object WorkflowManager {
 
             for (inputKey in inputs.keys().asSequence().toList()) {
                 val value = inputs.optString(inputKey, "")
-                val placeholderMatch = placeholderRegex.find(value)
-                if (placeholderMatch != null) {
-                    val placeholderName = placeholderMatch.groupValues[1]
-                    val fieldKey = TemplateKeyRegistry.getJsonKeyForPlaceholder(placeholderName)
-                    // Check both placeholder name and JSON key (OPTIONAL_KEYS uses mixed formats:
-                    // JSON keys for prompts like "negative_text", placeholder names for
-                    // highnoise/lownoise variants that share the same JSON key)
-                    if (placeholderName in unmappedOptionalKeys || fieldKey in unmappedOptionalKeys) {
-                        // Replace placeholder with empty string so it shows as unmapped in editor
-                        inputs.put(inputKey, "")
-                    }
+                val placeholderMatch = placeholderRegex.find(value) ?: continue
+                val placeholderName = placeholderMatch.groupValues[1]
+
+                // Case 1: placeholder belongs to a mapped field but this is not the target node
+                val targetNodeId = placeholderToTargetNodeId[placeholderName]
+                if (targetNodeId != null && nodeId != targetNodeId) {
+                    inputs.put(inputKey, "")
+                    continue
+                }
+
+                // Case 2: placeholder belongs to an unmapped optional field
+                val fieldKey = TemplateKeyRegistry.getJsonKeyForPlaceholder(placeholderName)
+                if (placeholderName in unmappedOptionalKeys || fieldKey in unmappedOptionalKeys) {
+                    inputs.put(inputKey, "")
                 }
             }
         }
@@ -856,8 +869,18 @@ object WorkflowManager {
             }
         }
 
-        // Remove placeholders for unmapped optional fields
-        // This prevents fields like {{highnoise_lora_name}} from appearing as "UI: ..." when not mapped
+        // Build reverse map: placeholder name -> target node ID for all mapped fields
+        val placeholderToTargetNodeId = fieldMappings.entries.associate { (fieldKey, mapping) ->
+            TemplateKeyRegistry.getPlaceholderForKey(fieldKey) to mapping.first
+        }
+
+        // Remove stale and unmapped placeholders in a single pass:
+        // - Stale: node still holds {{placeholder}} for a MAPPED field but is no longer the
+        //   target node (left over when the user re-saves with a different node selected).
+        //   replaceCommonPlaceholders() does a global String.replace, so a stale placeholder
+        //   in an unrelated node (e.g. {{latent_upscale_model}} in UltralyticsDetectorProvider)
+        //   would receive the wrong value and cause a server 400 error.
+        // - Unmapped: node holds {{placeholder}} for an optional field that has no mapping at all.
         val mappedFieldKeys = fieldMappings.keys
         val allOptionalKeys = TemplateKeyRegistry.getOptionalKeysForType(existingWorkflow.type)
         val unmappedOptionalKeys = allOptionalKeys - mappedFieldKeys
@@ -869,17 +892,20 @@ object WorkflowManager {
 
             for (inputKey in inputs.keys().asSequence().toList()) {
                 val value = inputs.optString(inputKey, "")
-                val placeholderMatch = placeholderRegex.find(value)
-                if (placeholderMatch != null) {
-                    val placeholderName = placeholderMatch.groupValues[1]
-                    val fieldKey = TemplateKeyRegistry.getJsonKeyForPlaceholder(placeholderName)
-                    // Check both placeholder name and JSON key (OPTIONAL_KEYS uses mixed formats:
-                    // JSON keys for prompts like "negative_text", placeholder names for
-                    // highnoise/lownoise variants that share the same JSON key)
-                    if (placeholderName in unmappedOptionalKeys || fieldKey in unmappedOptionalKeys) {
-                        // Replace placeholder with empty string so it shows as unmapped in editor
-                        inputs.put(inputKey, "")
-                    }
+                val placeholderMatch = placeholderRegex.find(value) ?: continue
+                val placeholderName = placeholderMatch.groupValues[1]
+
+                // Case 1: placeholder belongs to a mapped field but this is not the target node
+                val targetNodeId = placeholderToTargetNodeId[placeholderName]
+                if (targetNodeId != null && nodeId != targetNodeId) {
+                    inputs.put(inputKey, "")
+                    continue
+                }
+
+                // Case 2: placeholder belongs to an unmapped optional field
+                val fieldKey = TemplateKeyRegistry.getJsonKeyForPlaceholder(placeholderName)
+                if (placeholderName in unmappedOptionalKeys || fieldKey in unmappedOptionalKeys) {
+                    inputs.put(inputKey, "")
                 }
             }
         }
