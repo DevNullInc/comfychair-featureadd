@@ -138,18 +138,29 @@ internal object LoraInjectionUtils {
      */
     @Suppress("UNUSED_PARAMETER")
     private fun findModelSourceNode(nodes: JSONObject, workflowType: WorkflowType): String? {
-        // Search for both loader types - prioritize CheckpointLoaderSimple, then UNETLoader
-        val loaderTypes = listOf("CheckpointLoaderSimple", "UNETLoader")
+        // 1. Search for Checkpoint loaders case-insensitively
+        var nodeIds = nodes.keys()
+        while (nodeIds.hasNext()) {
+            val nodeId = nodeIds.next()
+            val node = nodes.optJSONObject(nodeId) ?: continue
+            val classType = node.optString("class_type", "")
+            if (classType.contains("CheckpointLoader", ignoreCase = true) ||
+                classType.contains("CheckpointSimple", ignoreCase = true)) {
+                return nodeId
+            }
+        }
 
-        for (targetClassType in loaderTypes) {
-            val nodeIds = nodes.keys()
-            while (nodeIds.hasNext()) {
-                val nodeId = nodeIds.next()
-                val node = nodes.optJSONObject(nodeId) ?: continue
-                val classType = node.optString("class_type", "")
-                if (classType == targetClassType) {
-                    return nodeId
-                }
+        // 2. Search for UNET loaders case-insensitively
+        nodeIds = nodes.keys()
+        while (nodeIds.hasNext()) {
+            val nodeId = nodeIds.next()
+            val node = nodes.optJSONObject(nodeId) ?: continue
+            val classType = node.optString("class_type", "")
+            if (classType.contains("UNETLoader", ignoreCase = true) ||
+                classType.contains("UnetLoader", ignoreCase = true) ||
+                classType.contains("DiffusionLoader", ignoreCase = true) ||
+                classType.contains("ModelLoader", ignoreCase = true)) {
+                return nodeId
             }
         }
         return null

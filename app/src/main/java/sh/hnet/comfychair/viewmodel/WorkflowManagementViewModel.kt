@@ -437,33 +437,33 @@ class WorkflowManagementViewModel : ViewModel() {
                 )
             } else {
                 val candidates = mutableListOf<FieldCandidate>()
+                val matchedNodeIds = mutableSetOf<String>()
 
-                // Get the actual JSON input key for this placeholder
-                // e.g., "highnoise_unet_name" -> "unet_name", "lownoise_lora_name" -> "lora_name"
-                val jsonInputKey = TemplateKeyRegistry.getJsonKeyForPlaceholder(fieldKey)
-
-                // Find all nodes that have this input key
+                // Find all nodes that have matching inputs based on smart isFieldMatch
                 for (nodeId in nodesJson.keys()) {
                     val node = nodesJson.optJSONObject(nodeId) ?: continue
                     val inputs = node.optJSONObject("inputs") ?: continue
+                    val classType = node.optString("class_type", "Unknown")
 
-                    if (inputs.has(jsonInputKey)) {
-                        val currentValue = inputs.opt(jsonInputKey)
+                    for (inputKey in inputs.keys()) {
+                        val currentValue = inputs.opt(inputKey)
 
-                        if (TemplateKeyRegistry.doesValueMatchPlaceholder(fieldKey, currentValue)) {
-                            val classType = node.optString("class_type", "Unknown")
-                            val meta = node.optJSONObject("_meta")
-                            val title = meta?.optString("title") ?: classType
+                        if (TemplateKeyRegistry.isFieldMatch(fieldKey, classType, inputKey, currentValue)) {
+                            if (nodeId !in matchedNodeIds) {
+                                matchedNodeIds.add(nodeId)
+                                val meta = node.optJSONObject("_meta")
+                                val title = meta?.optString("title") ?: classType
 
-                            candidates.add(
-                                FieldCandidate(
-                                    nodeId = nodeId,
-                                    nodeName = title,
-                                    classType = classType,
-                                    inputKey = jsonInputKey,
-                                    currentValue = currentValue
+                                candidates.add(
+                                    FieldCandidate(
+                                        nodeId = nodeId,
+                                        nodeName = title,
+                                        classType = classType,
+                                        inputKey = inputKey,
+                                        currentValue = currentValue
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
@@ -487,7 +487,10 @@ class WorkflowManagementViewModel : ViewModel() {
         if (keyLower == "value" && classType == "PrimitiveNode") return true
 
         val isMatchedName = keyLower == "text" || keyLower == "prompt" ||
-                keyLower.endsWith("text") || keyLower.endsWith("prompt")
+                keyLower.endsWith("text") || keyLower.endsWith("prompt") ||
+                keyLower.contains("posprompt") || keyLower.contains("negprompt") ||
+                keyLower.contains("pos_prompt") || keyLower.contains("neg_prompt") ||
+                keyLower.contains("{posprompt}") || keyLower.contains("{negprompt}")
 
         val hasObviousNonPromptTerm = keyLower.contains("file") ||
                 keyLower.contains("path") ||
@@ -551,11 +554,33 @@ class WorkflowManagementViewModel : ViewModel() {
                 "positive" -> positiveTextCandidates.add(0, candidate) // Add traced match first
                 "negative" -> negativeTextCandidates.add(0, candidate) // Add traced match first
                 else -> {
-                    // Unknown connection - use title-based classification
+                    // Unknown connection - use title-based/key-based classification
                     val titleLower = title.lowercase()
+                    val keyLower = inputKey.lowercase()
+                    
+                    val isPositive = titleLower.contains("positive") || 
+                                     titleLower.contains("posprompt") || 
+                                     titleLower.contains("pos_prompt") || 
+                                     titleLower.contains("{posprompt}") || 
+                                     titleLower.contains("pos") ||
+                                     keyLower.contains("positive") || 
+                                     keyLower.contains("posprompt") || 
+                                     keyLower.contains("pos_prompt") || 
+                                     keyLower.contains("pos")
+
+                    val isNegative = titleLower.contains("negative") || 
+                                     titleLower.contains("negprompt") || 
+                                     titleLower.contains("neg_prompt") || 
+                                     titleLower.contains("{negprompt}") || 
+                                     titleLower.contains("neg") ||
+                                     keyLower.contains("negative") || 
+                                     keyLower.contains("negprompt") || 
+                                     keyLower.contains("neg_prompt") || 
+                                     keyLower.contains("neg")
+
                     when {
-                        titleLower.contains("positive") -> positiveTextCandidates.add(candidate)
-                        titleLower.contains("negative") -> negativeTextCandidates.add(candidate)
+                        isPositive && !isNegative -> positiveTextCandidates.add(candidate)
+                        isNegative && !isPositive -> negativeTextCandidates.add(candidate)
                         else -> {
                             // Add to both as fallback candidates
                             positiveTextCandidates.add(candidate)

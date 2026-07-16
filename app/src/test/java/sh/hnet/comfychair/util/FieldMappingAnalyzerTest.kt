@@ -237,4 +237,101 @@ class FieldMappingAnalyzerTest {
         val connectionType = FieldMappingAnalyzer.traceConditioningConnection(graph, "primitive_id")
         assertEquals("positive", connectionType)
     }
+
+    @Test
+    fun testUnetWorkflowDetection() {
+        val unetJson = """
+            {
+              "nodes": {
+                "1": {
+                  "class_type": "UnetLoaderGGUF",
+                  "inputs": {
+                    "unet_name": "flux1-dev-Q4_K_S.gguf"
+                  }
+                }
+              }
+            }
+        """.trimIndent()
+        val detected = WorkflowJsonAnalyzer.detectWorkflowType(unetJson)
+        assertEquals(WorkflowType.TTI, detected)
+    }
+
+    @Test
+    fun testSmartFieldMappingForLoaders() {
+        // Test custom UNET loader
+        val isUnetMatch = TemplateKeyRegistry.isFieldMatch(
+            fieldKey = "unet_name",
+            classType = "UnetLoaderGGUF",
+            inputKey = "unet_name",
+            inputValue = "flux1-dev-Q4_K_S.gguf"
+        )
+        assertTrue(isUnetMatch)
+
+        // Custom UNET loader should NOT match checkpoint
+        val isCkptMatch = TemplateKeyRegistry.isFieldMatch(
+            fieldKey = "ckpt_name",
+            classType = "UnetLoaderGGUF",
+            inputKey = "unet_name",
+            inputValue = "flux1-dev-Q4_K_S.gguf"
+        )
+        assertFalse(isCkptMatch)
+
+        // Custom checkpoint loader with "model_name" should match checkpoint
+        val isCustomCkptMatch = TemplateKeyRegistry.isFieldMatch(
+            fieldKey = "ckpt_name",
+            classType = "CheckpointLoaderGGUF",
+            inputKey = "model_name",
+            inputValue = "sd15.safetensors"
+        )
+        assertTrue(isCustomCkptMatch)
+
+        // Custom checkpoint loader with "model_name" should NOT match UNET
+        val isCustomCkptUnetMatch = TemplateKeyRegistry.isFieldMatch(
+            fieldKey = "unet_name",
+            classType = "CheckpointLoaderGGUF",
+            inputKey = "model_name",
+            inputValue = "sd15.safetensors"
+        )
+        assertFalse(isCustomCkptUnetMatch)
+    }
+
+    @Test
+    fun testPromptKeyAndTitleFallbackClassification() {
+        val positiveNode = WorkflowNode(
+            id = "node_pos",
+            classType = "CustomPromptEncoder",
+            title = "My {posprompt} Node",
+            category = NodeCategory.OTHER,
+            inputs = mapOf("posprompt" to InputValue.Literal("positive prompt text")),
+            templateInputKeys = emptySet()
+        )
+        val negativeNode = WorkflowNode(
+            id = "node_neg",
+            classType = "CustomPromptEncoder",
+            title = "My {negprompt} Node",
+            category = NodeCategory.OTHER,
+            inputs = mapOf("negprompt" to InputValue.Literal("negative prompt text")),
+            templateInputKeys = emptySet()
+        )
+
+        val graph = WorkflowGraph(
+            name = "FallbackClassificationTest",
+            description = "",
+            nodes = listOf(positiveNode, negativeNode),
+            edges = emptyList(),
+            templateVariables = emptySet()
+        )
+
+        val mappings = FieldMappingAnalyzer.createPromptFieldMappings(graph, registry)
+        val positiveCandidates = mappings["positive_text"] ?: emptyList()
+        val negativeCandidates = mappings["negative_text"] ?: emptyList()
+
+        // positiveNode should only be in positiveCandidates, not negativeCandidates
+        assertTrue(positiveCandidates.any { it.nodeId == "node_pos" })
+        assertFalse(negativeCandidates.any { it.nodeId == "node_pos" })
+
+        // negativeNode should only be in negativeCandidates, not positiveCandidates
+        assertTrue(negativeCandidates.any { it.nodeId == "node_neg" })
+        assertFalse(positiveCandidates.any { it.nodeId == "node_neg" })
+    }
 }

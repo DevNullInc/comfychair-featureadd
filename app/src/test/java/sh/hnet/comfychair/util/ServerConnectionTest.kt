@@ -1,9 +1,11 @@
 package sh.hnet.comfychair.util
 
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import sh.hnet.comfychair.ComfyUIClient
 import sh.hnet.comfychair.storage.BackupValidator
+import sh.hnet.comfychair.storage.ObjectInfoCache
 
 class ServerConnectionTest {
 
@@ -60,5 +62,46 @@ class ServerConnectionTest {
         assertTrue(validator.validatePort(65535))
         assertFalse(validator.validatePort(-1))
         assertFalse(validator.validatePort(65536))
+    }
+
+    @Test
+    fun testObjectInfoCacheStreaming() {
+        val tempDir = java.nio.file.Files.createTempDirectory("temp_cache").toFile()
+        val mockContext = object : android.content.ContextWrapper(null) {
+            override fun getFilesDir(): java.io.File = tempDir
+        }
+
+        val originalJson = JSONObject().apply {
+            put("stringKey", "stringValue")
+            put("intKey", 42)
+            put("boolKey", true)
+            put("nullKey", JSONObject.NULL)
+            put("arrayKey", org.json.JSONArray().apply {
+                put("elem1")
+                put(24)
+            })
+            put("nestedKey", JSONObject().apply {
+                put("subKey", "subVal")
+            })
+        }
+
+        ObjectInfoCache.saveObjectInfo(mockContext, "test_server", originalJson)
+        val loadedJson = ObjectInfoCache.loadObjectInfo(mockContext, "test_server")
+
+        assertNotNull(loadedJson)
+        assertEquals("stringValue", loadedJson!!.getString("stringKey"))
+        assertEquals(42, loadedJson.getInt("intKey"))
+        assertEquals(true, loadedJson.getBoolean("boolKey"))
+        assertTrue(loadedJson.isNull("nullKey"))
+        
+        val array = loadedJson.getJSONArray("arrayKey")
+        assertEquals(2, array.length())
+        assertEquals("elem1", array.getString(0))
+        assertEquals(24, array.getInt(1))
+
+        assertEquals("subVal", loadedJson.getJSONObject("nestedKey").getString("subKey"))
+        
+        // Clean up
+        tempDir.deleteRecursively()
     }
 }

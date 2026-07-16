@@ -141,16 +141,24 @@ object MetadataParser {
                 }
 
                 // Checkpoint loaders
-                classType in listOf("CheckpointLoaderSimple", "CheckpointLoader") -> {
-                    val modelName = inputs.optString("ckpt_name", "").takeIf { it.isNotEmpty() }
+                classType.contains("CheckpointLoader", ignoreCase = true) ||
+                classType.contains("CheckpointSimple", ignoreCase = true) -> {
+                    val modelName = (inputs.optString("ckpt_name", "").takeIf { it.isNotEmpty() }
+                        ?: inputs.optString("model_name", "").takeIf { it.isNotEmpty() }
+                        ?: inputs.optString("model", "").takeIf { it.isNotEmpty() })
                     if (modelName != null && modelName !in models) {
                         models.add(modelName)
                     }
                 }
 
                 // UNET loaders
-                classType == "UNETLoader" -> {
-                    val unetName = inputs.optString("unet_name", "").takeIf { it.isNotEmpty() }
+                classType.contains("UNETLoader", ignoreCase = true) ||
+                classType.contains("UnetLoader", ignoreCase = true) ||
+                classType.contains("DiffusionLoader", ignoreCase = true) ||
+                classType.contains("ModelLoader", ignoreCase = true) -> {
+                    val unetName = (inputs.optString("unet_name", "").takeIf { it.isNotEmpty() }
+                        ?: inputs.optString("model_name", "").takeIf { it.isNotEmpty() }
+                        ?: inputs.optString("model", "").takeIf { it.isNotEmpty() })
                     if (unetName != null && unetName !in unets) {
                         unets.add(unetName)
                     }

@@ -31,10 +31,12 @@ object ObjectInfoCache {
             val cacheFile = getCacheFile(context, serverId)
             val timestampFile = getTimestampFile(context, serverId)
 
-            // Write compressed JSON
+            // Write compressed JSON using streaming writer to avoid OOM
             FileOutputStream(cacheFile).use { fos ->
                 GZIPOutputStream(fos).use { gzip ->
-                    gzip.write(json.toString().toByteArray(Charsets.UTF_8))
+                    gzip.writer(Charsets.UTF_8).use { writer ->
+                        writeJsonObject(json, writer)
+                    }
                 }
             }
 
@@ -42,7 +44,7 @@ object ObjectInfoCache {
             timestampFile.writeText(System.currentTimeMillis().toString())
 
             DebugLogger.i(TAG, "Object info cached for server $serverId, size: ${cacheFile.length()} bytes")
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             DebugLogger.e(TAG, "Failed to save object info cache: ${e.message}")
         }
     }
@@ -69,10 +71,52 @@ object ObjectInfoCache {
             val json = JSONObject(jsonString)
             DebugLogger.i(TAG, "Object info loaded from cache for server $serverId")
             json
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             DebugLogger.e(TAG, "Failed to load object info cache: ${e.message}")
             null
         }
+    }
+
+    private fun writeJsonObject(json: JSONObject, writer: java.io.Writer) {
+        writer.write("{")
+        var first = true
+        val keys = json.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            if (!first) {
+                writer.write(",")
+            }
+            first = false
+            writer.write(JSONObject.quote(key))
+            writer.write(":")
+            val value = json.opt(key)
+            writeValue(value, writer)
+        }
+        writer.write("}")
+    }
+
+    private fun writeValue(value: Any?, writer: java.io.Writer) {
+        when (value) {
+            null, JSONObject.NULL -> writer.write("null")
+            is JSONObject -> writeJsonObject(value, writer)
+            is org.json.JSONArray -> writeJsonArray(value, writer)
+            is String -> writer.write(JSONObject.quote(value))
+            is Boolean -> writer.write(value.toString())
+            is Number -> writer.write(value.toString())
+            else -> writer.write(JSONObject.quote(value.toString()))
+        }
+    }
+
+    private fun writeJsonArray(array: org.json.JSONArray, writer: java.io.Writer) {
+        writer.write("[")
+        for (i in 0 until array.length()) {
+            if (i > 0) {
+                writer.write(",")
+            }
+            val value = array.opt(i)
+            writeValue(value, writer)
+        }
+        writer.write("]")
     }
 
     /**

@@ -134,12 +134,16 @@ internal object WorkflowJsonAnalyzer {
 
         // Check for checkpoint loader
         val hasCheckpointLoader = classTypes.any { classType ->
-            classType.equals("CheckpointLoaderSimple", ignoreCase = true)
+            classType.contains("CheckpointLoader", ignoreCase = true) ||
+            classType.contains("CheckpointSimple", ignoreCase = true)
         }
 
         // Check for UNET loader
         val hasUNETLoader = classTypes.any { classType ->
-            classType.equals("UNETLoader", ignoreCase = true)
+            classType.contains("UNETLoader", ignoreCase = true) ||
+            classType.contains("UnetLoader", ignoreCase = true) ||
+            classType.contains("DiffusionLoader", ignoreCase = true) ||
+            classType.contains("ModelLoader", ignoreCase = true)
         }
 
         // Detection rules (order matters - most specific first):
@@ -189,8 +193,16 @@ internal object WorkflowJsonAnalyzer {
         val hasImageEditingNodes = classTypes.any {
             it.contains("QwenImageEdit", ignoreCase = true)
         }
-        val hasCheckpointLoader = classTypes.any { it.equals("CheckpointLoaderSimple", ignoreCase = true) }
-        val hasUNETLoader = classTypes.any { it.equals("UNETLoader", ignoreCase = true) }
+        val hasCheckpointLoader = classTypes.any {
+            it.contains("CheckpointLoader", ignoreCase = true) ||
+            it.contains("CheckpointSimple", ignoreCase = true)
+        }
+        val hasUNETLoader = classTypes.any {
+            it.contains("UNETLoader", ignoreCase = true) ||
+            it.contains("UnetLoader", ignoreCase = true) ||
+            it.contains("DiffusionLoader", ignoreCase = true) ||
+            it.contains("ModelLoader", ignoreCase = true)
+        }
 
         return when {
             // Image-to-video: has both LoadImage and video nodes
