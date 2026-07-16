@@ -37,7 +37,7 @@ data class Server(
             val id = json.optString("id").takeIf { it.isNotEmpty() } ?: return null
             val name = json.optString("name").takeIf { it.isNotEmpty() } ?: return null
             val hostname = json.optString("hostname").takeIf { it.isNotEmpty() } ?: return null
-            val port = json.optInt("port", -1).takeIf { it > 0 } ?: return null
+            val port = json.optInt("port", 0)
             val authType = try {
                 AuthType.valueOf(json.optString("authType", "NONE"))
             } catch (e: IllegalArgumentException) {
@@ -64,5 +64,5 @@ data class Server(
     /**
      * Get display string for connection (hostname:port).
      */
-    fun getConnectionString(): String = "$hostname:$port"
+    fun getConnectionString(): String = if (port > 0) "$hostname:$port" else hostname
 }

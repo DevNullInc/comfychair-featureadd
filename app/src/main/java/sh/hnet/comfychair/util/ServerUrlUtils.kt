@@ -13,6 +13,10 @@ object ServerUrlUtils {
      * @return Full URL string, e.g. "https://192.168.1.100:8188"
      */
     fun buildServerUrl(protocol: String, hostname: String, port: Int): String {
-        return "$protocol://$hostname:$port"
+        val cleanHost = hostname.trim()
+        val hasProtocol = cleanHost.startsWith("http://", ignoreCase = true) ||
+                cleanHost.startsWith("https://", ignoreCase = true)
+        val base = if (hasProtocol) cleanHost else "$protocol://$cleanHost"
+        return if (port > 0) "$base:$port" else base
     }
 }

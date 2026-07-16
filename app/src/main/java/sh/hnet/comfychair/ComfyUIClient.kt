@@ -55,8 +55,37 @@ class ComfyUIClient(
         private const val STALL_CHECK_INTERVAL_MS = 5_000L    // Check every 5 seconds
     }
 
+    private val normalizedHostname: String
+    private val normalizedPort: Int
+    private val defaultProtocol: String?
+
+    init {
+        val cleanHostInput = hostname.trim()
+        val (parsedProtocol, hostAndPort) = when {
+            cleanHostInput.startsWith("https://", ignoreCase = true) -> "https" to cleanHostInput.substring(8)
+            cleanHostInput.startsWith("http://", ignoreCase = true) -> "http" to cleanHostInput.substring(7)
+            else -> null to cleanHostInput
+        }
+
+        val (hostOnly, finalPort) = if (hostAndPort.contains(":")) {
+            val parts = hostAndPort.split(":")
+            val p = parts.last().toIntOrNull()
+            if (p != null) {
+                hostAndPort.substring(0, hostAndPort.lastIndexOf(":")) to p
+            } else {
+                hostAndPort to port
+            }
+        } else {
+            hostAndPort to port
+        }
+
+        this.normalizedHostname = hostOnly
+        this.normalizedPort = if (finalPort > 0) finalPort else 0
+        this.defaultProtocol = parsedProtocol
+    }
+
     // Auth interceptor for adding auth headers and detecting session expiry
-    private val authInterceptor = AuthInterceptor(credentials, hostname)
+    private val authInterceptor = AuthInterceptor(credentials, normalizedHostname)
 
     // OkHttpClient for HTTP requests - short timeouts are fine
     private val httpClient = SelfSignedCertHelper.configureToAcceptSelfSigned(
@@ -169,11 +198,11 @@ class ComfyUIClient(
      *                 - failureType: the type of failure (NONE, AUTHENTICATION, NETWORK, INVALID_SERVER)
      */
     fun testConnection(callback: (success: Boolean, errorMessage: String?, certIssue: CertificateIssue, failureType: ConnectionFailure) -> Unit) {
-        DebugLogger.i(TAG, "Testing connection to ${Obfuscator.hostname(hostname)}")
+        DebugLogger.i(TAG, "Testing connection to ${Obfuscator.hostname(normalizedHostname)}")
         // Reset the certificate issue detection
         SelfSignedCertHelper.reset()
-        // Try HTTPS first (more secure)
-        tryConnection("https", callback)
+        val initialProtocol = defaultProtocol ?: "https"
+        tryConnection(initialProtocol, callback)
     }
 
     /**
@@ -188,7 +217,8 @@ class ComfyUIClient(
     ) {
         // Build the URL to test
         // ComfyUI provides /system_stats endpoint that returns server info
-        val url = "$protocol://$hostname:$port/system_stats"
+        val hostWithPort = if (normalizedPort > 0) "$normalizedHostname:$normalizedPort" else normalizedHostname
+        val url = "$protocol://$hostWithPort/system_stats"
 
         // Create an HTTP GET request
         val request = Request.Builder()
@@ -201,7 +231,7 @@ class ComfyUIClient(
         httpClient.newCall(request).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
                 // Connection failed with this protocol
-                if (protocol == "https") {
+                if (protocol == "https" && defaultProtocol == null) {
                     // HTTPS failed, try HTTP as fallback
                     tryConnection("http", callback)
                 } else {
@@ -228,7 +258,7 @@ class ComfyUIClient(
                             } else {
                                 // Response doesn't match ComfyUI format
                                 DebugLogger.w(TAG, "Invalid response: not a ComfyUI server")
-                                if (protocol == "https") {
+                                if (protocol == "https" && defaultProtocol == null) {
                                     tryConnection("http", callback)
                                 } else {
                                     callback(false, context?.getString(R.string.error_not_comfyui_server)
@@ -238,7 +268,7 @@ class ComfyUIClient(
                         } catch (e: Exception) {
                             // Response is not valid JSON - not a ComfyUI server
                             DebugLogger.w(TAG, "Invalid response: ${e.message}")
-                            if (protocol == "https") {
+                            if (protocol == "https" && defaultProtocol == null) {
                                 tryConnection("http", callback)
                             } else {
                                 callback(false, context?.getString(R.string.error_invalid_server_response)
@@ -261,7 +291,7 @@ class ComfyUIClient(
                                 SelfSignedCertHelper.certificateIssue,
                                 ConnectionFailure.AUTHENTICATION
                             )
-                        } else if (protocol == "https") {
+                        } else if (protocol == "https" && defaultProtocol == null) {
                             // Try HTTP as fallback for other errors
                             tryConnection("http", callback)
                         } else {
@@ -309,7 +339,8 @@ class ComfyUIClient(
         // This is crucial - ComfyUI only sends progress/preview events to the matching client_id
         // ws:// for http, wss:// for https
         val wsProtocol = if (protocol == "https") "wss" else "ws"
-        val wsUrl = "$wsProtocol://$hostname:$port/ws?clientId=$clientIdOverride"
+        val hostWithPort = if (normalizedPort > 0) "$normalizedHostname:$normalizedPort" else normalizedHostname
+        val wsUrl = "$wsProtocol://$hostWithPort/ws?clientId=$clientIdOverride"
 
         DebugLogger.i(TAG, "Opening WebSocket connection")
 
@@ -362,7 +393,8 @@ class ComfyUIClient(
      * @return The base URL (e.g., "https://192.168.1.100:8188")
      */
     fun getBaseUrl(): String? {
-        return workingProtocol?.let { "$it://$hostname:$port" }
+        val hostWithPort = if (normalizedPort > 0) "$normalizedHostname:$normalizedPort" else normalizedHostname
+        return workingProtocol?.let { "$it://$hostWithPort" }
     }
 
     /**

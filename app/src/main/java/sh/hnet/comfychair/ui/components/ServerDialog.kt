@@ -73,7 +73,15 @@ fun ServerDialog(
     // Form state
     var name by remember { mutableStateOf(server?.name ?: "") }
     var hostname by remember { mutableStateOf(server?.hostname ?: "") }
-    var port by remember { mutableStateOf(server?.port?.toString() ?: "8188") }
+    var port by remember {
+        mutableStateOf(
+            if (server != null) {
+                if (server.port > 0) server.port.toString() else ""
+            } else {
+                "8188"
+            }
+        )
+    }
 
     // Authentication state
     var authType by remember { mutableStateOf(server?.authType ?: AuthType.NONE) }
@@ -115,7 +123,21 @@ fun ServerDialog(
     }
 
     fun isValidHostname(value: String): Boolean {
-        return ipAddressPattern.matches(value) || hostnamePattern.matches(value)
+        var stripped = value
+            .removePrefix("http://")
+            .removePrefix("https://")
+            .removePrefix("HTTP://")
+            .removePrefix("HTTPS://")
+        if (stripped.contains(":")) {
+            val parts = stripped.split(":")
+            if (parts.size == 2) {
+                val p = parts[1].toIntOrNull()
+                if (p != null && p in 1..65535) {
+                    stripped = parts[0]
+                }
+            }
+        }
+        return ipAddressPattern.matches(stripped) || hostnamePattern.matches(stripped)
     }
 
     // String resources
@@ -156,11 +178,8 @@ fun ServerDialog(
             isValid = false
         }
 
-        // Validate port
-        if (trimmedPort.isEmpty()) {
-            portError = errorRequired
-            isValid = false
-        } else {
+        // Validate port (optional)
+        if (trimmedPort.isNotEmpty()) {
             val portNum = trimmedPort.toIntOrNull()
             if (portNum == null || portNum !in 1..65535) {
                 portError = errorInvalidPort
@@ -479,7 +498,7 @@ fun ServerDialog(
                         onSave(
                             name.trim(),
                             hostname.trim(),
-                            port.trim().toInt(),
+                            port.trim().toIntOrNull() ?: 0,
                             authType,
                             buildCredentials()
                         )

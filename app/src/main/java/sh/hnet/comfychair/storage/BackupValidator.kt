@@ -32,7 +32,7 @@ class BackupValidator {
         val MAX_WORKFLOW_DESCRIPTION_LENGTH = ValidationUtils.MAX_WORKFLOW_DESCRIPTION_LENGTH
 
         // Numeric ranges
-        const val MIN_PORT = 1
+        const val MIN_PORT = 0
         const val MAX_PORT = 65535
         const val MIN_DIMENSION = 1
         const val MAX_DIMENSION = 4096
@@ -89,7 +89,21 @@ class BackupValidator {
      */
     fun validateHostname(hostname: String): Boolean {
         if (hostname.isBlank()) return false
-        return IP_ADDRESS_PATTERN.matches(hostname) || HOSTNAME_PATTERN.matches(hostname)
+        var stripped = hostname
+            .removePrefix("http://")
+            .removePrefix("https://")
+            .removePrefix("HTTP://")
+            .removePrefix("HTTPS://")
+        if (stripped.contains(":")) {
+            val parts = stripped.split(":")
+            if (parts.size == 2) {
+                val p = parts[1].toIntOrNull()
+                if (p != null && p in 0..65535) {
+                    stripped = parts[0]
+                }
+            }
+        }
+        return IP_ADDRESS_PATTERN.matches(stripped) || HOSTNAME_PATTERN.matches(stripped)
     }
 
     /**
