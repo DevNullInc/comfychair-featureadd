@@ -225,7 +225,7 @@ private fun LoraEntryItem(
             Text(
                 text = String.format(Locale.US, "%.1f", lora.strength),
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.width(32.dp)
+                modifier = Modifier.width(40.dp)
             )
         }
     }

@@ -184,9 +184,28 @@ object FieldMappingAnalyzer {
     }
 
     /**
+     * Helper to verify if an input key is a candidate for a text prompt.
+     */
+    private fun isPromptInputKey(key: String, classType: String): Boolean {
+        val keyLower = key.lowercase()
+        if (keyLower == "value" && classType == "PrimitiveNode") return true
+
+        val isMatchedName = keyLower == "text" || keyLower == "prompt" ||
+                keyLower.endsWith("text") || keyLower.endsWith("prompt")
+
+        val hasObviousNonPromptTerm = keyLower.contains("file") ||
+                keyLower.contains("path") ||
+                keyLower.contains("template") ||
+                keyLower.contains("url") ||
+                keyLower.contains("dir")
+
+        return isMatchedName && !hasObviousNonPromptTerm
+    }
+
+    /**
      * Create field mappings for positive_text and negative_text using graph tracing.
      * Uses two detection strategies:
-     * 1. Input-key-based: Look for nodes with "text" or "prompt" inputs (fast path)
+     * 1. Input-key-based: Look for nodes with text/prompt input keys or string primitives
      * 2. Output-type-based: Look for nodes with CONDITIONING output + STRING inputs (fallback for custom nodes)
      *
      * @param graph The workflow graph
@@ -200,14 +219,15 @@ object FieldMappingAnalyzer {
         val positiveTextCandidates = mutableListOf<FieldCandidate>()
         val negativeTextCandidates = mutableListOf<FieldCandidate>()
 
-        // Text input keys to look for (common English names)
-        val textInputKeys = listOf("text", "prompt")
-
-        // Strategy 1: Find nodes with known text/prompt input keys
+        // Strategy 1: Find nodes with text/prompt input keys or string primitives
         data class TextEncoderNode(val node: WorkflowNode, val inputKey: String)
-        val textEncoderNodes = graph.nodes.mapNotNull { node ->
-            val matchingInputKey = textInputKeys.firstOrNull { node.inputs.containsKey(it) }
-            if (matchingInputKey != null) TextEncoderNode(node, matchingInputKey) else null
+        val textEncoderNodes = graph.nodes.flatMap { node ->
+            node.inputs.filter { (key, value) ->
+                val isStringLiteral = value is InputValue.Literal && value.value is String
+                isPromptInputKey(key, node.classType) && isStringLiteral
+            }.map { (key, _) ->
+                TextEncoderNode(node, key)
+            }
         }
 
         // Strategy 2 (fallback): Find nodes with CONDITIONING output + STRING inputs
@@ -269,9 +289,22 @@ object FieldMappingAnalyzer {
             }
         }
 
+        // Prioritize CLIPTextEncode and other standard encoders (stable sort)
+        val priorityComparator = compareBy<FieldCandidate> { candidate ->
+            when {
+                candidate.classType == "CLIPTextEncode" -> 0
+                candidate.classType.contains("TextEncode", ignoreCase = true) ||
+                candidate.classType.contains("Prompt", ignoreCase = true) -> 1
+                else -> 2
+            }
+        }.thenBy { it.nodeName }.thenBy { it.nodeId }
+
+        val sortedPositive = positiveTextCandidates.sortedWith(priorityComparator)
+        val sortedNegative = negativeTextCandidates.sortedWith(priorityComparator)
+
         return mapOf(
-            "positive_text" to positiveTextCandidates,
-            "negative_text" to negativeTextCandidates
+            "positive_text" to sortedPositive,
+            "negative_text" to sortedNegative
         )
     }
 
@@ -292,25 +325,50 @@ object FieldMappingAnalyzer {
 
     /**
      * Trace a conditioning node's output to find what type of connection it has.
-     * Uses WorkflowGraph.edges to trace connections.
+     * Uses WorkflowGraph.edges to trace connections recursively with cycle detection.
      *
      * This is classType-agnostic: it simply checks if the target input name
      * indicates positive or negative conditioning, regardless of the target node type.
      *
      * @param graph The workflow graph
-     * @param conditioningNodeId ID of the conditioning node to trace from
+     * @param currentNodeId ID of the node to trace from
+     * @param visited Set of already visited nodes to prevent cycles
      * @return "positive", "negative", or null if no connection found
      */
-    fun traceConditioningConnection(graph: WorkflowGraph, conditioningNodeId: String): String? {
-        // Find edges originating from this conditioning node
-        val outgoingEdges = graph.edges.filter { it.sourceNodeId == conditioningNodeId }
+    fun traceConditioningConnection(
+        graph: WorkflowGraph,
+        currentNodeId: String,
+        visited: Set<String> = emptySet()
+    ): String? {
+        if (currentNodeId in visited) {
+            // Cycle detected
+            return null
+        }
+        if (visited.size > 15) {
+            // Max depth reached
+            DebugLogger.w("FieldMappingAnalyzer", "Max depth (15) exceeded tracing node: $currentNodeId")
+            return null
+        }
+        val nextVisited = visited + currentNodeId
 
+        // Find edges originating from this conditioning node
+        val outgoingEdges = graph.edges.filter { it.sourceNodeId == currentNodeId }
+
+        // Step 1: Check direct connections
         for (edge in outgoingEdges) {
             // Check target input name - works for any node type (KSampler, custom samplers, etc.)
             when (edge.targetInputName.lowercase()) {
                 "positive" -> return "positive"
                 "negative" -> return "negative"
                 "conditioning" -> return "positive"  // Single conditioning input (like BasicGuider)
+            }
+        }
+
+        // Step 2: Recurse downstream
+        for (edge in outgoingEdges) {
+            val result = traceConditioningConnection(graph, edge.targetNodeId, nextVisited)
+            if (result != null) {
+                return result
             }
         }
 

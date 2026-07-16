@@ -107,11 +107,36 @@ object MetadataParser {
                     }
                 }
 
-                // CLIP Text Encode
-                classType == "CLIPTextEncode" -> {
-                    val text = inputs.optString("text", "").takeIf { it.isNotEmpty() }
-                    if (text != null) {
-                        clipTexts[nodeId] = text
+                // CLIP Text Encode, PrimitiveNode, or custom prompt/text nodes
+                classType == "CLIPTextEncode" ||
+                classType.contains("TextEncode", ignoreCase = true) ||
+                classType.contains("Prompt", ignoreCase = true) ||
+                classType == "PrimitiveNode" -> {
+                    var extractedText: String? = null
+                    val keys = inputs.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val keyLower = key.lowercase()
+                        val isMatchingKey = (keyLower == "value" && classType == "PrimitiveNode") ||
+                                keyLower == "text" || keyLower == "prompt" ||
+                                keyLower.endsWith("text") || keyLower.endsWith("prompt")
+
+                        val hasObviousNonPromptTerm = keyLower.contains("file") ||
+                                keyLower.contains("path") ||
+                                keyLower.contains("template") ||
+                                keyLower.contains("url") ||
+                                keyLower.contains("dir")
+
+                        if (isMatchingKey && !hasObviousNonPromptTerm) {
+                            val value = inputs.opt(key)
+                            if (value is String && value.isNotEmpty()) {
+                                extractedText = value
+                                break
+                            }
+                        }
+                    }
+                    if (extractedText != null) {
+                        clipTexts[nodeId] = extractedText
                     }
                 }
 
@@ -221,8 +246,12 @@ object MetadataParser {
 
         val nodeType = nodeTypes[startNodeId] ?: return null
 
-        // If this is a CLIPTextEncode, we found it
-        if (nodeType == "CLIPTextEncode") {
+        // If this is a CLIPTextEncode, PrimitiveNode, or custom prompt/text node, we found it
+        val isTextNode = nodeType == "CLIPTextEncode" ||
+                nodeType.contains("TextEncode", ignoreCase = true) ||
+                nodeType.contains("Prompt", ignoreCase = true) ||
+                nodeType == "PrimitiveNode"
+        if (isTextNode) {
             return startNodeId
         }
 
