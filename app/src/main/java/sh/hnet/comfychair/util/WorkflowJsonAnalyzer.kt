@@ -134,16 +134,22 @@ internal object WorkflowJsonAnalyzer {
 
         // Check for checkpoint loader
         val hasCheckpointLoader = classTypes.any { classType ->
-            classType.contains("CheckpointLoader", ignoreCase = true) ||
-            classType.contains("CheckpointSimple", ignoreCase = true)
+            (classType.contains("CheckpointLoader", ignoreCase = true) ||
+             classType.contains("CheckpointSimple", ignoreCase = true)) &&
+            !classType.contains("preprocessor", ignoreCase = true) &&
+            !classType.contains("processor", ignoreCase = true) &&
+            !classType.contains("filter", ignoreCase = true)
         }
 
         // Check for UNET loader
         val hasUNETLoader = classTypes.any { classType ->
-            classType.contains("UNETLoader", ignoreCase = true) ||
-            classType.contains("UnetLoader", ignoreCase = true) ||
-            classType.contains("DiffusionLoader", ignoreCase = true) ||
-            classType.contains("ModelLoader", ignoreCase = true)
+            (classType.contains("UNETLoader", ignoreCase = true) ||
+             classType.contains("UnetLoader", ignoreCase = true) ||
+             classType.contains("DiffusionLoader", ignoreCase = true) ||
+             (classType.contains("ModelLoader", ignoreCase = true) && !classType.contains("checkpoint", ignoreCase = true))) &&
+            !classType.contains("preprocessor", ignoreCase = true) &&
+            !classType.contains("processor", ignoreCase = true) &&
+            !classType.contains("filter", ignoreCase = true)
         }
 
         // Detection rules (order matters - most specific first):
@@ -193,15 +199,21 @@ internal object WorkflowJsonAnalyzer {
         val hasImageEditingNodes = classTypes.any {
             it.contains("QwenImageEdit", ignoreCase = true)
         }
-        val hasCheckpointLoader = classTypes.any {
-            it.contains("CheckpointLoader", ignoreCase = true) ||
-            it.contains("CheckpointSimple", ignoreCase = true)
+        val hasCheckpointLoader = classTypes.any { classType ->
+            (classType.contains("CheckpointLoader", ignoreCase = true) ||
+             classType.contains("CheckpointSimple", ignoreCase = true)) &&
+            !classType.contains("preprocessor", ignoreCase = true) &&
+            !classType.contains("processor", ignoreCase = true) &&
+            !classType.contains("filter", ignoreCase = true)
         }
-        val hasUNETLoader = classTypes.any {
-            it.contains("UNETLoader", ignoreCase = true) ||
-            it.contains("UnetLoader", ignoreCase = true) ||
-            it.contains("DiffusionLoader", ignoreCase = true) ||
-            it.contains("ModelLoader", ignoreCase = true)
+        val hasUNETLoader = classTypes.any { classType ->
+            (classType.contains("UNETLoader", ignoreCase = true) ||
+             classType.contains("UnetLoader", ignoreCase = true) ||
+             classType.contains("DiffusionLoader", ignoreCase = true) ||
+             (classType.contains("ModelLoader", ignoreCase = true) && !classType.contains("checkpoint", ignoreCase = true))) &&
+            !classType.contains("preprocessor", ignoreCase = true) &&
+            !classType.contains("processor", ignoreCase = true) &&
+            !classType.contains("filter", ignoreCase = true)
         }
 
         return when {

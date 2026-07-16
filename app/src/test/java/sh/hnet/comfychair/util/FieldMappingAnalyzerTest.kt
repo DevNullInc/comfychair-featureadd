@@ -334,4 +334,25 @@ class FieldMappingAnalyzerTest {
         assertTrue(negativeCandidates.any { it.nodeId == "node_neg" })
         assertFalse(positiveCandidates.any { it.nodeId == "node_neg" })
     }
+
+    @Test
+    fun testModelLoaderFalsePositivePrevention() {
+        // A preprocessor class type should NOT match "ckpt_name"
+        val isMatch = TemplateKeyRegistry.isFieldMatch(
+            fieldKey = "ckpt_name",
+            classType = "MyCheckpointPreprocessor",
+            inputKey = "model_name",
+            inputValue = "some_value"
+        )
+        assertFalse(isMatch)
+
+        // A loader class type should still match
+        val isLoaderMatch = TemplateKeyRegistry.isFieldMatch(
+            fieldKey = "ckpt_name",
+            classType = "CheckpointLoaderSimple",
+            inputKey = "model_name",
+            inputValue = "some_value"
+        )
+        assertTrue(isLoaderMatch)
+    }
 }

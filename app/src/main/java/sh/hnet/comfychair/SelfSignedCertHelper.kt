@@ -32,6 +32,18 @@ object SelfSignedCertHelper {
     var certificateIssue = CertificateIssue.NONE
         private set
 
+    private fun getDefaultTrustManager(): X509TrustManager? {
+        return try {
+            val tmf = javax.net.ssl.TrustManagerFactory.getInstance(
+                javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm()
+            )
+            tmf.init(null as java.security.KeyStore?)
+            tmf.trustManagers.firstOrNull { it is X509TrustManager } as? X509TrustManager
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /**
      * Create a custom TrustManager that accepts all certificates
      * This is necessary for self-signed and unknown CA certificates
@@ -40,13 +52,19 @@ object SelfSignedCertHelper {
      * Only use this for connections to known, trusted local servers.
      */
     private fun createTrustManager(): X509TrustManager {
+        val defaultTm = getDefaultTrustManager()
+
         return object : X509TrustManager {
             /**
              * Check if client certificates are trusted
              * For our use case, we accept all client certificates
              */
             override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {
-                // Accept all client certificates
+                try {
+                    defaultTm?.checkClientTrusted(chain, authType)
+                } catch (e: Exception) {
+                    // Accept all client certificates
+                }
             }
 
             /**
@@ -57,7 +75,19 @@ object SelfSignedCertHelper {
              * @param authType The authentication type (e.g., "RSA", "ECDSA")
              */
             override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
-                // If we receive a certificate chain, analyze it
+                // First, try default system trust manager to see if it is already fully valid & trusted
+                try {
+                    if (defaultTm != null) {
+                        defaultTm.checkServerTrusted(chain, authType)
+                        // If it succeeded, it is valid and trusted. Clear any issue flag and return.
+                        certificateIssue = CertificateIssue.NONE
+                        return
+                    }
+                } catch (e: Exception) {
+                    // Default validation failed - certificate has issues, let's analyze it below
+                }
+
+                // If default validation failed, analyze it
                 if (chain != null && chain.isNotEmpty()) {
                     val cert = chain[0] // Get the server's certificate
 
@@ -73,8 +103,7 @@ object SelfSignedCertHelper {
                         certificateIssue = CertificateIssue.SELF_SIGNED
                     } else {
                         // Certificate is signed by someone else (a CA)
-                        // But since we're in this custom trust manager, it means
-                        // the default validation failed - so it's an unknown CA
+                        // But since default validation failed - it's an unknown CA
                         // Example: A private CA that's not in Android's trusted CA store
                         certificateIssue = CertificateIssue.UNKNOWN_CA
                     }
@@ -87,7 +116,7 @@ object SelfSignedCertHelper {
              * We accept all, so return empty array
              */
             override fun getAcceptedIssuers(): Array<X509Certificate> {
-                return arrayOf()
+                return defaultTm?.acceptedIssuers ?: arrayOf()
             }
         }
     }

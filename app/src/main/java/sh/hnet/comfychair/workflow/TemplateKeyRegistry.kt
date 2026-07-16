@@ -325,26 +325,34 @@ object TemplateKeyRegistry {
 
     /**
      * Combined check: does this (classType, inputKey, inputValue) match the fieldKey?
-     */
-    fun isFieldMatch(fieldKey: String, classType: String, inputKey: String, inputValue: Any?): Boolean {
+     */    fun isFieldMatch(fieldKey: String, classType: String, inputKey: String, inputValue: Any?): Boolean {
         val classTypeLower = classType.lowercase()
         val inputKeyLower = inputKey.lowercase()
+
+        val hasObviousNonLoaderTerm = classTypeLower.contains("preprocessor") ||
+                                      classTypeLower.contains("processor") ||
+                                      classTypeLower.contains("filter") ||
+                                      classTypeLower.contains("selector") ||
+                                      classTypeLower.contains("save") ||
+                                      classTypeLower.contains("output") ||
+                                      classTypeLower.contains("info") ||
+                                      classTypeLower.contains("view")
 
         // Implement smart model loader matching based on classType and inputKey
         when (fieldKey) {
             "ckpt_name" -> {
-                val isCheckpointNode = classTypeLower.contains("checkpointloader") ||
-                                       classTypeLower.contains("checkpoint")
+                val isCheckpointNode = (classTypeLower.contains("checkpointloader") ||
+                                       classTypeLower.contains("checkpoint")) && !hasObviousNonLoaderTerm
                 val isCheckpointKey = inputKeyLower in listOf("ckpt_name", "checkpoint", "model_name", "model")
                 if (isCheckpointNode && isCheckpointKey) return true
                 if (inputKey == "ckpt_name") return true
                 return false
             }
             "unet_name", "highnoise_unet_name", "lownoise_unet_name" -> {
-                val isUnetNode = classTypeLower.contains("unetloader") ||
+                val isUnetNode = (classTypeLower.contains("unetloader") ||
                                  classTypeLower.contains("unet") ||
                                  classTypeLower.contains("diffusionloader") ||
-                                 (classTypeLower.contains("modelloader") && !classTypeLower.contains("checkpoint"))
+                                 (classTypeLower.contains("modelloader") && !classTypeLower.contains("checkpoint"))) && !hasObviousNonLoaderTerm
                 val isUnetKey = inputKeyLower in listOf("unet_name", "model_name", "model")
                 
                 val matchesBase = if (isUnetNode && isUnetKey) true else (inputKey == "unet_name")
@@ -354,14 +362,14 @@ object TemplateKeyRegistry {
                 return false
             }
             "vae_name" -> {
-                val isVaeNode = classTypeLower.contains("vaeloader") || classTypeLower.contains("vae")
+                val isVaeNode = (classTypeLower.contains("vaeloader") || classTypeLower.contains("vae")) && !hasObviousNonLoaderTerm
                 val isVaeKey = inputKeyLower in listOf("vae_name", "vae")
                 if (isVaeNode && isVaeKey) return true
                 if (inputKey == "vae_name") return true
                 return false
             }
             "clip_name", "clip_name1", "clip_name2", "clip_name3", "clip_name4" -> {
-                val isClipNode = classTypeLower.contains("cliploader") || classTypeLower.contains("clip")
+                val isClipNode = (classTypeLower.contains("cliploader") || classTypeLower.contains("clip")) && !hasObviousNonLoaderTerm
                 val isClipKey = inputKeyLower in listOf("clip_name", "clip_name1", "clip_name2", "clip_name3", "clip_name4", "clip")
                 
                 val matchesBase = if (isClipNode && isClipKey) true else (inputKey == getJsonKeyForPlaceholder(fieldKey))
