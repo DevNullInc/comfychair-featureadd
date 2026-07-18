@@ -34,7 +34,7 @@ ComfyChair provides a streamlined mobile interface for interacting with ComfyUI 
   - **Checkpoint mode**: Traditional CheckpointLoaderSimple workflows
   - **UNET mode**: Modern diffusion workflows (Flux, Z-Image, etc.) with separate UNET, VAE, and CLIP model selection
 - **LoRA chain support**:
-  - Add up to 5 LoRAs per chain with individual strength control (0.0-2.0)
+  - Add up to 5 LoRAs per chain with individual strength control (-5.0-5.0)
   - Text to Image and Image to Image: Separate LoRA chains for Checkpoint and UNET modes
   - Text to Video and Image to Video: Separate High Noise and Low Noise LoRA chains
   - LoRAs are dynamically injected into workflows at generation time
@@ -88,6 +88,7 @@ ComfyChair provides a streamlined mobile interface for interacting with ComfyUI 
 - **Full node graph visualization**: Colored nodes and connections matching ComfyUI's visual style with smooth Bezier curves or Hermite splines
 - **Node management**:
   - Add nodes via searchable Node Browser with category filter chips
+  - More options for positive prompt injection instead of default "CLIPTextEncode"
   - Human-readable display names shown where available (with class type as subtitle)
   - Deprecated and experimental nodes clearly marked with warning/science icons
   - Search by display name, class type, category, or description
